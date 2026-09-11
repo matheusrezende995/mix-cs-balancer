@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>MIX CS2 - Votação e Balanceamento</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #1b2838; color: #fff; text-align: center; margin-top: 30px; }
+    .card { background-color: #171a21; width: 500px; margin: auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+    input, select, button { width: 90%; padding: 10px; margin: 8px 0; border-radius: 4px; border: none; }
+    button { background-color: #5c7e10; color: white; font-weight: bold; cursor: pointer; }
+    button:hover { background-color: #729b13; }
+    .btn-votar { background-color: #4b6b94; }
+    .btn-votar:hover { background-color: #6187b8; }
+    .btn-balancear { background-color: #de9b35; margin-top: 15px; }
+    .btn-balancear:hover { background-color: #eab155; }
+    ul { list-style: none; padding: 0; }
+    li { background: #2a475e; margin: 5px 0; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
+    .item-voto { flex-direction: column; align-items: stretch; gap: 5px; }
+    .times-container { display: flex; justify-content: space-between; margin-top: 20px; gap: 10px; }
+    .time-box { width: 48%; background: #2a475e; padding: 10px; border-radius: 6px; box-sizing: border-box; }
+    .ct-title { color: #5c7e10; }
+    .tr-title { color: #de9b35; }
+    .section { margin-top: 20px; border-top: 1px solid #2a475e; padding-top: 15px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Lobby CS2 (10 Players)</h2>
+
+  <!-- ETAPA 1: Cadastro -->
+  <div>
+    <input type="text" id="nome" placeholder="Digite seu Nick no CS">
+    <button onclick="entrar()">Entrar no Lobby</button>
+  </div>
+
+  <h3>Jogadores no Lobby (<span id="count">0</span>/10)</h3>
+  <ul id="listaLobby"></ul>
+
+  <!-- ETAPA 2: Quem é você para votar? -->
+  <div class="section">
+    <h3>Área de Votação</h3>
+    <label for="meuUsuario">Selecione QUEM é você:</label>
+    <select id="meuUsuario" onchange="renderizarVotacao()">
+      <option value="">-- Selecione seu Nick --</option>
+    </select>
+
+    <div id="painelVotacao" style="margin-top: 15px;"></div>
+  </div>
+
+  <!-- ETAPA 3: Balanceamento -->
+  <div class="section">
+    <button class="btn-balancear" onclick="balancear()">Balancear Times</button>
+
+    <div class="times-container" id="resultado" style="display:none;">
+      <div class="time-box">
+        <h4 class="ct-title">Counter-Terrorists</h4>
+        <ul id="timeCT"></ul>
+      </div>
+      <div class="time-box">
+        <h4 class="tr-title">Terrorists</h4>
+        <ul id="timeTR"></ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let todosJogadores = [];
+
+  async function carregar() {
+    const res = await fetch('/api/jogadores');
+    todosJogadores = await res.json();
+
+    document.getElementById('count').innerText = todosJogadores.length;
+
+    // Atualiza a lista simples do Lobby
+    const listaLobby = document.getElementById('listaLobby');
+    listaLobby.innerHTML = '';
+
+    // Atualiza o dropdown "Quem é você"
+    const selectUsuario = document.getElementById('meuUsuario');
+    const usuarioSelecionado = selectUsuario.value;
+    selectUsuario.innerHTML = '<option value="">-- Selecione seu Nick --</option>';
+
+    todosJogadores.forEach(j => {
+      listaLobby.innerHTML += `<li><span>${j.nome}</span></li>`;
+      selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome}</option>`;
+    });
+
+    selectUsuario.value = usuarioSelecionado;
+    renderizarVotacao();
+  }
+
+  async function entrar() {
+    const nome = document.getElementById('nome').value;
+    if (!nome) return alert('Digite seu nick!');
+
+    const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
+    const msg = await res.text();
+    alert(msg);
+    document.getElementById('nome').value = '';
+    carregar();
+  }
+
+  function renderizarVotacao() {
+    const meuNick = document.getElementById('meuUsuario').value;
+    const painel = document.getElementById('painelVotacao');
+    painel.innerHTML = '';
+
+    if (!meuNick) {
+      painel.innerHTML = '<p style="color: #8f98a0;">Selecione seu nick acima para votar nos outros jogadores.</p>';
+      return;
+    }
+
+    // Filtra para remover VOCÊ MESMO da lista de votação
+    const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
+
+    if (outros.length === 0) {
+      painel.innerHTML = '<p style="color: #8f98a0;">Aguardando mais jogadores entrarem no lobby...</p>';
+      return;
+    }
+
+    outros.forEach(j => {
+      painel.innerHTML += `
+                <div style="background: #2a475e; margin: 8px 0; padding: 10px; border-radius: 4px; text-align: left;">
+                    <strong>Votar no Tier de: ${j.nome}</strong>
+                    <div style="display: flex; gap: 8px; margin-top: 5px;">
+                        <select id="tier-${j.nome}">
+                            <option value="1.0">Tier 1 - Level 20 / GC A+</option>
+                            <option value="2.5">Tier 2 - Level 15 / GC A</option>
+                            <option value="3.5">Tier 3 - Level 10 / GC B</option>
+                            <option value="5.0">Tier 4 - Level 5 / GC C</option>
+                        </select>
+                        <button class="btn-votar" style="width: 30%;" onclick="enviarVoto('${j.nome}')">Votar</button>
+                    </div>
+                </div>
+            `;
+    });
+  }
+
+  async function enviarVoto(alvo) {
+    const tier = document.getElementById(`tier-${alvo}`).value;
+    const res = await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
+    const msg = await res.text();
+    alert(msg);
+    carregar();
+  }
+
+  async function balancear() {
+    const res = await fetch('/api/balancear');
+    if (!res.ok) {
+      alert('Erro ao balancear partida!');
+      return;
+    }
+    const times = await res.json();
+
+    document.getElementById('resultado').style.display = 'flex';
+
+    const ctList = document.getElementById('timeCT');
+    const trList = document.getElementById('timeTR');
+    ctList.innerHTML = '';
+    trList.innerHTML = '';
+
+    times[0].jogadores.forEach(j => ctList.innerHTML += `<li>${j.nome}</li>`);
+    times[1].jogadores.forEach(j => trList.innerHTML += `<li>${j.nome}</li>`);
+  }
+
+  carregar();
+</script>
+</body>
+</html>
