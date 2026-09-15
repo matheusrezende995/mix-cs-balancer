@@ -59,7 +59,6 @@ public class MixController {
 
     @GetMapping("/balancear")
     public ResponseEntity<?> balancearPartida() {
-        // REGRA: Só permite balancear com 10 jogadores
         if (lobby.size() < 10) {
             return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby para balancear!");
         }
@@ -67,7 +66,7 @@ public class MixController {
         try {
             List<Time> times = balanceadorService.balancearTimes(lobby);
             return ResponseEntity.ok(times);
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }

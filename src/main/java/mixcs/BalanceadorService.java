@@ -10,7 +10,13 @@ public class BalanceadorService {
 
     public List<Time> balancearTimes(List<Jogador> jogadores) {
         if (jogadores.size() != 10) {
-            throw new IllegalArgumentException("É necessário ter exatamente 10 jogadores.");
+            throw new IllegalArgumentException("É necessário ter exatamente 10 jogadores no lobby.");
+        }
+
+        // REGRA DE SEGURANÇA: Exige que todos tenham pelo menos 1 voto registrado
+        boolean todosVotados = jogadores.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
+        if (!todosVotados) {
+            throw new IllegalStateException("Todos os 10 jogadores precisam ser votados antes de balancear os times!");
         }
 
         // Ordena os jogadores pela média de votos
