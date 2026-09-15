@@ -39,6 +39,11 @@ public class MixController {
 
     @PostMapping("/votar")
     public ResponseEntity<String> votarTier(@RequestParam String alvo, @RequestParam double tier) {
+        // REGRA: Só permite votar se o lobby tiver exatamente 10 jogadores
+        if (lobby.size() < 10) {
+            return ResponseEntity.badRequest().body("A votação só é liberada quando o lobby tiver 10 jogadores!");
+        }
+
         Jogador jogadorAlvo = lobby.stream()
                 .filter(j -> j.getNome().equalsIgnoreCase(alvo))
                 .findFirst()
@@ -54,6 +59,11 @@ public class MixController {
 
     @GetMapping("/balancear")
     public ResponseEntity<?> balancearPartida() {
+        // REGRA: Só permite balancear com 10 jogadores
+        if (lobby.size() < 10) {
+            return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby para balancear!");
+        }
+
         try {
             List<Time> times = balanceadorService.balancearTimes(lobby);
             return ResponseEntity.ok(times);
@@ -69,6 +79,11 @@ public class MixController {
 
     @PostMapping("/draft/iniciar")
     public ResponseEntity<?> iniciarDraft() {
+        // REGRA: Só permite iniciar Draft com 10 jogadores
+        if (lobby.size() < 10) {
+            return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby para iniciar o Draft!");
+        }
+
         try {
             DraftState state = balanceadorService.iniciarDraft(lobby);
             return ResponseEntity.ok(state);

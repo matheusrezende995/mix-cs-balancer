@@ -1,6 +1,5 @@
 package mixcs;
 
-
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -52,16 +51,12 @@ public class BalanceadorService {
         return partida;
     }
 
-// --- MODO CAPITÃES (DRAFT) ---
+    // --- MODO CAPITÃES (DRAFT) ---
 
     public DraftState iniciarDraft(List<Jogador> lobby) {
-        if (lobby.size() < 2) {
-            throw new IllegalStateException("É necessário pelo menos 2 jogadores no lobby para iniciar o draft.");
-        }
-
-        // Validação 1: Número par de jogadores
-        if (lobby.size() % 2 != 0) {
-            throw new IllegalStateException("O lobby precisa ter um número PAR de jogadores para o Draft!");
+        // Validação 1: Exige exatamente 10 jogadores no lobby
+        if (lobby.size() != 10) {
+            throw new IllegalStateException("É necessário ter exatamente 10 jogadores no lobby para iniciar o Draft!");
         }
 
         // Validação 2: Verificar se todos os jogadores já receberam pelo menos 1 voto
@@ -73,6 +68,7 @@ public class BalanceadorService {
         List<Jogador> ordenados = new ArrayList<>(lobby);
         ordenados.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia));
 
+        // Os dois melhores/piores tiers viram os capitães automaticamente
         Jogador c1 = ordenados.remove(0);
         Jogador c2 = ordenados.remove(0);
 
@@ -94,8 +90,9 @@ public class BalanceadorService {
             throw new IllegalStateException("Nenhum draft em andamento.");
         }
 
+        // Validação estrita: Apenas o capitão do turno atual pode realizar o pick
         if (!draftAtual.getTurnoAtual().equalsIgnoreCase(nomeCapitao)) {
-            throw new IllegalArgumentException("Não é o turno deste capitão!");
+            throw new IllegalArgumentException("Não é o seu turno de escolher! Aguarde a vez de: " + draftAtual.getTurnoAtual());
         }
 
         Jogador escolhido = draftAtual.getDisponiveis().stream()
@@ -105,6 +102,7 @@ public class BalanceadorService {
 
         draftAtual.getDisponiveis().remove(escolhido);
 
+        // Adiciona ao time do capitão correto e alterna o turno
         if (nomeCapitao.equalsIgnoreCase(draftAtual.getCapitao1().getNome())) {
             draftAtual.getTime1().getJogadores().add(escolhido);
             draftAtual.setTurnoAtual(draftAtual.getCapitao2().getNome());
