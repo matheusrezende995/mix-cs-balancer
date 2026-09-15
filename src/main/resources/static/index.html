@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <link rel="stylesheet" href="/style.css">
   <meta charset="UTF-8">
   <title>MIX CS2 - Votação e Balanceamento</title>
-
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 
+<!-- CARD ESCURO CENTRALIZADO -->
 <div class="card">
   <h2>Lobby CS2 (10 Players)</h2>
 
@@ -21,7 +21,7 @@
   <button class="btn-reset" onclick="limparLobby()">🗑️ Limpar Lobby</button>
   <ul id="listaLobby"></ul>
 
-  <!-- ETAPA 2: Quem é você para votar? -->
+  <!-- ETAPA 2: Votação -->
   <div class="section">
     <h3>Área de Votação</h3>
     <label for="meuUsuario">Selecione QUEM é você:</label>
@@ -32,7 +32,7 @@
     <div id="painelVotacao" style="margin-top: 15px;"></div>
   </div>
 
-  <!-- ETAPA 3: Balanceamento Automático ou Draft -->
+  <!-- ETAPA 3: Balanceamento ou Draft -->
   <div class="section">
     <h3>Formação de Times</h3>
     <button class="btn-balancear" onclick="balancear()">⚡ Balanceamento Automático</button>
@@ -59,7 +59,7 @@
     </div>
 
     <!-- BOTÃO DISCORD -->
-    <div id="discord-container" style="display: none;">
+    <div id="discord-container" style="display: none; margin-top: 15px;">
       <button class="btn-discord" onclick="copiarParaDiscord()">📋 Copiar para o Discord</button>
     </div>
   </div>
@@ -123,9 +123,9 @@
     let htmlForm = '';
     outros.forEach(j => {
       htmlForm += `
-        <div class="voto-item">
+        <div class="voto-item" style="margin-bottom: 10px;">
             <strong>Tier de: ${j.nome}</strong>
-            <select class="select-voto-tier" data-alvo="${j.nome}" style="width: 100%; margin-top: 5px;">
+            <select class="select-voto-tier" data-alvo="${j.nome}">
                 <option value="1.0">Tier 1 - Level 20 / GC A+</option>
                 <option value="2.5">Tier 2 - Level 15 / GC A</option>
                 <option value="3.5">Tier 3 - Level 10 / GC B</option>

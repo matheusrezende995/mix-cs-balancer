@@ -1,9 +1,9 @@
 body {
     margin: 0;
-    padding: 20px;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-image: url('/images/fundo1.jpg'); /* Nome e extensão atualizados */
-    background-size: cover; /* Faz a imagem da praia preencher a tela inteira */
+    padding: 30px 15px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-image: url('/images/fundo1.jpg');
+    background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
@@ -13,4 +13,129 @@ body {
     align-items: center;
     min-height: 100vh;
     box-sizing: border-box;
+}
+
+/* Card central com fundo escuro semi-transparente */
+.card {
+    background-color: rgba(23, 29, 37, 0.92); /* Fundo escuro fosco */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 30px;
+    width: 100%;
+    max-width: 550px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
+    box-sizing: border-box;
+}
+
+h2, h3 {
+    margin-top: 0;
+    color: #ffffff;
+    text-align: center;
+}
+
+input, select {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: 1px solid #30363d;
+    background-color: #0d1117;
+    color: #ffffff;
+    box-sizing: border-box;
+}
+
+button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    border: none;
+    background-color: #537e10; /* Verde estilo CS */
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 14px;
+    transition: 0.2s;
+}
+
+button:hover {
+    filter: brightness(1.2);
+}
+
+.btn-reset {
+    background-color: #a43030; /* Vermelho reset */
+}
+
+.btn-votar {
+    background-color: #4b6b94;
+}
+
+.btn-balancear {
+    background-color: #de9b35; /* Laranja balancear */
+}
+
+.btn-draft {
+    background-color: #a34c9f; /* Roxo draft */
+}
+
+.btn-discord {
+    background-color: #5865F2;
+}
+
+.btn-pick {
+    width: auto;
+    padding: 6px 12px;
+    margin: 0;
+    background-color: #319235;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    background: #2a475e;
+    margin: 6px 0;
+    padding: 10px 14px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section {
+    margin-top: 25px;
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    padding-top: 15px;
+}
+
+.times-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.time-box {
+    width: 48%;
+    background: #2a475e;
+    padding: 12px;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.ct-title { color: #5c7e10; margin: 0 0 10px 0; text-align: center; }
+.tr-title { color: #de9b35; margin: 0 0 10px 0; text-align: center; }
+
+.turn-highlight {
+    background-color: #216b8e;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #00c0f4;
+    font-weight: bold;
+    margin-bottom: 12px;
+    text-align: center;
 }
