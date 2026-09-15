@@ -39,7 +39,6 @@ public class MixController {
 
     @PostMapping("/votar")
     public ResponseEntity<String> votarTier(@RequestParam String alvo, @RequestParam double tier) {
-        // REGRA: Só permite votar se o lobby tiver exatamente 10 jogadores
         if (lobby.size() < 10) {
             return ResponseEntity.badRequest().body("A votação só é liberada quando o lobby tiver 10 jogadores!");
         }
@@ -55,6 +54,14 @@ public class MixController {
 
         jogadorAlvo.adicionarVoto(tier);
         return ResponseEntity.ok("Voto registrado para " + alvo);
+    }
+
+    @GetMapping("/votos-concluidos-count")
+    public ResponseEntity<Long> getVotosConcluidosCount() {
+        long count = lobby.stream()
+                .filter(j -> j.getHabilidadeMedia() != 3.0)
+                .count();
+        return ResponseEntity.ok(count);
     }
 
     @GetMapping("/balancear")
@@ -78,7 +85,6 @@ public class MixController {
 
     @PostMapping("/draft/iniciar")
     public ResponseEntity<?> iniciarDraft() {
-        // REGRA: Só permite iniciar Draft com 10 jogadores
         if (lobby.size() < 10) {
             return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby para iniciar o Draft!");
         }

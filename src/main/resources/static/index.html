@@ -42,6 +42,16 @@
 
     <div id="painelVotacao" style="margin-top: 15px;"></div>
 
+    <!-- CONTADOR GLOBAL DA SALA E BOTÃO BLOQUEADO -->
+    <div id="boxStatusVotacao" style="margin-top: 20px; text-align: center; display: none;">
+      <p style="color: #c9d1d9; font-size: 14px; margin-bottom: 8px;">
+        Votações concluídas no lobby: <strong id="contadorVotosConcluidos" style="color: #58a6ff;">0/10</strong>
+      </p>
+      <button id="btnConfirmarEGerar" class="btn-votar" onclick="irParaTimes()" disabled style="opacity: 0.5; cursor: not-allowed; width: 100%;">
+        🔒 Aguardando todos os 10 jogadores votarem...
+      </button>
+    </div>
+
     <div style="text-align: right; margin-top: 15px;">
       <button class="btn-reset-small" onclick="limparLobby()">🗑️ Resetar Lobby</button>
     </div>
@@ -77,6 +87,7 @@
   let todosJogadores = [];
   let ultimaPartida = null;
   let meusVotosLocais = {};
+  let intervalVotos = null;
 
   async function carregar() {
     const res = await fetch('/api/jogadores');
@@ -103,26 +114,22 @@
     const faseVotacao = document.getElementById('faseVotacao');
     const faseFormacao = document.getElementById('faseFormacao');
 
-    const todosVotados = total === 10 && todosJogadores.every(j => j.habilidadeMedia > 0);
-
     if (total < 10) {
       faseLobby.style.display = 'block';
       faseVotacao.style.display = 'none';
       faseFormacao.style.display = 'none';
-    } else if (total === 10 && (!todosVotados || !window.votosConcluidosLocais)) {
+      pararChecagemVotos();
+    } else if (total === 10 && !ultimaPartida) {
       faseLobby.style.display = 'none';
       faseVotacao.style.display = 'block';
       faseFormacao.style.display = 'none';
       renderizarVotacao();
+      iniciarChecagemVotos();
     } else {
       faseLobby.style.display = 'none';
       faseVotacao.style.display = 'none';
       faseFormacao.style.display = 'block';
-
-      // Gera automaticamente se ainda não tiver gerado nesta sessão
-      if (!ultimaPartida) {
-        balancear();
-      }
+      pararChecagemVotos();
     }
   }
 
@@ -143,13 +150,16 @@
   function renderizarVotacao() {
     const meuNick = document.getElementById('meuUsuario').value;
     const painel = document.getElementById('painelVotacao');
+    const boxStatus = document.getElementById('boxStatusVotacao');
     painel.innerHTML = '';
 
     if (!meuNick) {
       painel.innerHTML = '<p style="color: #8f98a0; text-align: center;">Selecione seu nick acima para votar nos jogadores.</p>';
+      boxStatus.style.display = 'none';
       return;
     }
 
+    boxStatus.style.display = 'block';
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
     let htmlForm = '<div class="cards-voto-grid">';
@@ -175,12 +185,12 @@
     htmlForm += '</div>';
 
     const totalOutros = outros.length;
-    const totalVotados = Object.keys(meusVotosLocais).length;
+    const totalVotadosLocal = Object.keys(meusVotosLocais).length;
 
     htmlForm += `
       <div style="margin-top: 15px;">
-        <button class="btn-votar" onclick="enviarTodosVotos()" ${totalVotados < totalOutros ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-          🚀 Confirmar Votos e Gerar Times (${totalVotados}/${totalOutros})
+        <button class="btn-votar" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+          💾 Confirmar Meus Votos (${totalVotadosLocal}/${totalOutros})
         </button>
       </div>
     `;
@@ -197,12 +207,12 @@
     renderizarVotacao();
   }
 
-  async function enviarTodosVotos() {
+  async function enviarMeusVotos() {
     const meuNick = document.getElementById('meuUsuario').value;
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
     if (Object.keys(meusVotosLocais).length < outros.length) {
-      return alert("Vote no Tier de todos os jogadores antes de confirmar!");
+      return alert("Vote no Tier de todos os jogadores antes de salvar!");
     }
 
     for (const alvo in meusVotosLocais) {
@@ -210,9 +220,53 @@
       await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
     }
 
-    alert('🎉 Votos salvos! Gerando equipes...');
+    alert('🎉 Seus votos foram salvos no servidor!');
     meusVotosLocais = {};
-    window.votosConcluidosLocais = true;
+    renderizarVotacao();
+    atualizarStatusVotacaoGeral();
+  }
+
+  function iniciarChecagemVotos() {
+    if (!intervalVotos) {
+      atualizarStatusVotacaoGeral();
+      intervalVotos = setInterval(atualizarStatusVotacaoGeral, 2000);
+    }
+  }
+
+  function pararChecagemVotos() {
+    if (intervalVotos) {
+      clearInterval(intervalVotos);
+      intervalVotos = null;
+    }
+  }
+
+  async function atualizarStatusVotacaoGeral() {
+    try {
+      const res = await fetch('/api/votos-concluidos-count');
+      if (!res.ok) return;
+      const count = await res.json();
+
+      document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
+      const btn = document.getElementById('btnConfirmarEGerar');
+
+      if (count >= 10) {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+        btn.innerHTML = '🚀 Todos votaram! Gerar Equipes Agora';
+      } else {
+        btn.disabled = true;
+        btn.style.opacity = '0.5';
+        btn.style.cursor = 'not-allowed';
+        btn.innerHTML = `🔒 Aguardando todos os jogadores votarem (${count}/10)...`;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function irParaTimes() {
+    await balancear();
     carregar();
   }
 
@@ -257,8 +311,8 @@
 
     await fetch('/api/resetar', { method: 'POST' });
     meusVotosLocais = {};
-    window.votosConcluidosLocais = false;
     ultimaPartida = null;
+    pararChecagemVotos();
     carregar();
   }
 
