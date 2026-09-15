@@ -1,10 +1,13 @@
 package mixcs;
 
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 public class BalanceadorService {
+
+    private DraftState draftAtual;
 
     public List<Time> balancearTimes(List<Jogador> jogadores) {
         if (jogadores.size() != 10) {
@@ -47,5 +50,77 @@ public class BalanceadorService {
         partida.add(new Time("Terrorists", time2));
 
         return partida;
+    }
+
+// --- MODO CAPITÃES (DRAFT) ---
+
+    public DraftState iniciarDraft(List<Jogador> lobby) {
+        if (lobby.size() < 2) {
+            throw new IllegalStateException("É necessário pelo menos 2 jogadores no lobby para iniciar o draft.");
+        }
+
+        // Validação 1: Número par de jogadores
+        if (lobby.size() % 2 != 0) {
+            throw new IllegalStateException("O lobby precisa ter um número PAR de jogadores para o Draft!");
+        }
+
+        // Validação 2: Verificar se todos os jogadores já receberam pelo menos 1 voto
+        boolean todosVotados = lobby.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
+        if (!todosVotados) {
+            throw new IllegalStateException("Todos os jogadores precisam receber pelo menos um voto de Tier antes de iniciar!");
+        }
+
+        List<Jogador> ordenados = new ArrayList<>(lobby);
+        ordenados.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia));
+
+        Jogador c1 = ordenados.remove(0);
+        Jogador c2 = ordenados.remove(0);
+
+        List<Jogador> p1 = new ArrayList<>();
+        p1.add(c1);
+
+        List<Jogador> p2 = new ArrayList<>();
+        p2.add(c2);
+
+        Time time1 = new Time("Time " + c1.getNome(), p1);
+        Time time2 = new Time("Time " + c2.getNome(), p2);
+
+        this.draftAtual = new DraftState(c1, c2, ordenados, time1, time2);
+        return draftAtual;
+    }
+
+    public DraftState pickJogador(String nomeCapitao, String nomeEscolhido) {
+        if (draftAtual == null || draftAtual.isFinalizado()) {
+            throw new IllegalStateException("Nenhum draft em andamento.");
+        }
+
+        if (!draftAtual.getTurnoAtual().equalsIgnoreCase(nomeCapitao)) {
+            throw new IllegalArgumentException("Não é o turno deste capitão!");
+        }
+
+        Jogador escolhido = draftAtual.getDisponiveis().stream()
+                .filter(j -> j.getNome().equalsIgnoreCase(nomeEscolhido))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Jogador não encontrado ou já escolhido."));
+
+        draftAtual.getDisponiveis().remove(escolhido);
+
+        if (nomeCapitao.equalsIgnoreCase(draftAtual.getCapitao1().getNome())) {
+            draftAtual.getTime1().getJogadores().add(escolhido);
+            draftAtual.setTurnoAtual(draftAtual.getCapitao2().getNome());
+        } else {
+            draftAtual.getTime2().getJogadores().add(escolhido);
+            draftAtual.setTurnoAtual(draftAtual.getCapitao1().getNome());
+        }
+
+        if (draftAtual.getDisponiveis().isEmpty()) {
+            draftAtual.setFinalizado(true);
+        }
+
+        return draftAtual;
+    }
+
+    public DraftState getDraftAtual() {
+        return draftAtual;
     }
 }

@@ -5,22 +5,30 @@
   <title>MIX CS2 - Votação e Balanceamento</title>
   <style>
     body { font-family: Arial, sans-serif; background-color: #1b2838; color: #fff; text-align: center; margin-top: 30px; }
-    .card { background-color: #171a21; width: 500px; margin: auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+    .card { background-color: #171a21; width: 550px; margin: auto; padding: 20px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
     input, select, button { width: 90%; padding: 10px; margin: 8px 0; border-radius: 4px; border: none; }
     button { background-color: #5c7e10; color: white; font-weight: bold; cursor: pointer; }
     button:hover { background-color: #729b13; }
-    .btn-votar { background-color: #4b6b94; }
+    .btn-reset { background-color: #a43030; margin-bottom: 15px; }
+    .btn-reset:hover { background-color: #c43c3c; }
+    .btn-votar { background-color: #4b6b94; margin-top: 15px; }
     .btn-votar:hover { background-color: #6187b8; }
     .btn-balancear { background-color: #de9b35; margin-top: 15px; }
     .btn-balancear:hover { background-color: #eab155; }
+    .btn-draft { background-color: #a34c9f; margin-top: 10px; }
+    .btn-draft:hover { background-color: #b85bb4; }
+    .btn-discord { background-color: #5865F2; color: white; margin-top: 15px; }
+    .btn-discord:hover { background-color: #4752C4; }
+    .btn-pick { background-color: #319236; width: auto; padding: 5px 12px; margin: 0; }
     ul { list-style: none; padding: 0; }
     li { background: #2a475e; margin: 5px 0; padding: 10px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; }
-    .item-voto { flex-direction: column; align-items: stretch; gap: 5px; }
     .times-container { display: flex; justify-content: space-between; margin-top: 20px; gap: 10px; }
     .time-box { width: 48%; background: #2a475e; padding: 10px; border-radius: 6px; box-sizing: border-box; }
     .ct-title { color: #5c7e10; }
     .tr-title { color: #de9b35; }
     .section { margin-top: 20px; border-top: 1px solid #2a475e; padding-top: 15px; }
+    .turn-highlight { background-color: #214b6e; padding: 10px; border-radius: 4px; border: 1px solid #66c0f4; font-weight: bold; margin-bottom: 10px; }
+    .voto-item { background: #2a475e; margin: 8px 0; padding: 10px; border-radius: 4px; text-align: left; }
   </style>
 </head>
 <body>
@@ -35,6 +43,7 @@
   </div>
 
   <h3>Jogadores no Lobby (<span id="count">0</span>/10)</h3>
+  <button class="btn-reset" onclick="limparLobby()">🗑️ Limpar Lobby</button>
   <ul id="listaLobby"></ul>
 
   <!-- ETAPA 2: Quem é você para votar? -->
@@ -48,25 +57,43 @@
     <div id="painelVotacao" style="margin-top: 15px;"></div>
   </div>
 
-  <!-- ETAPA 3: Balanceamento -->
+  <!-- ETAPA 3: Balanceamento Automático ou Draft -->
   <div class="section">
-    <button class="btn-balancear" onclick="balancear()">Balancear Times</button>
+    <h3>Formação de Times</h3>
+    <button class="btn-balancear" onclick="balancear()">⚡ Balanceamento Automático</button>
+    <button class="btn-draft" onclick="iniciarDraft()">👑 Modo Capitães (Draft)</button>
 
+    <!-- PAINEL DO MODO DRAFT -->
+    <div id="painelDraft" style="display: none; margin-top: 20px; text-align: left;">
+      <div id="statusTurno" class="turn-highlight"></div>
+
+      <p><strong>Jogadores Disponíveis:</strong></p>
+      <ul id="listaDisponiveisDraft"></ul>
+    </div>
+
+    <!-- RESULTADO DOS TIMES -->
     <div class="times-container" id="resultado" style="display:none;">
       <div class="time-box">
-        <h4 class="ct-title">Counter-Terrorists</h4>
+        <h4 class="ct-title" id="nomeTime1">Counter-Terrorists</h4>
         <ul id="timeCT"></ul>
       </div>
       <div class="time-box">
-        <h4 class="tr-title">Terrorists</h4>
+        <h4 class="tr-title" id="nomeTime2">Terrorists</h4>
         <ul id="timeTR"></ul>
       </div>
+    </div>
+
+    <!-- BOTÃO DISCORD -->
+    <div id="discord-container" style="display: none;">
+      <button class="btn-discord" onclick="copiarParaDiscord()">📋 Copiar para o Discord</button>
     </div>
   </div>
 </div>
 
 <script>
   let todosJogadores = [];
+  let ultimaPartida = null;
+  let estadoDraftAtual = null;
 
   async function carregar() {
     const res = await fetch('/api/jogadores');
@@ -74,11 +101,9 @@
 
     document.getElementById('count').innerText = todosJogadores.length;
 
-    // Atualiza a lista simples do Lobby
     const listaLobby = document.getElementById('listaLobby');
     listaLobby.innerHTML = '';
 
-    // Atualiza o dropdown "Quem é você"
     const selectUsuario = document.getElementById('meuUsuario');
     const usuarioSelecionado = selectUsuario.value;
     selectUsuario.innerHTML = '<option value="">-- Selecione seu Nick --</option>';
@@ -113,7 +138,6 @@
       return;
     }
 
-    // Filtra para remover VOCÊ MESMO da lista de votação
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
     if (outros.length === 0) {
@@ -121,41 +145,53 @@
       return;
     }
 
+    let htmlForm = '';
     outros.forEach(j => {
-      painel.innerHTML += `
-                <div style="background: #2a475e; margin: 8px 0; padding: 10px; border-radius: 4px; text-align: left;">
-                    <strong>Votar no Tier de: ${j.nome}</strong>
-                    <div style="display: flex; gap: 8px; margin-top: 5px;">
-                        <select id="tier-${j.nome}">
-                            <option value="1.0">Tier 1 - Level 20 / GC A+</option>
-                            <option value="2.5">Tier 2 - Level 15 / GC A</option>
-                            <option value="3.5">Tier 3 - Level 10 / GC B</option>
-                            <option value="5.0">Tier 4 - Level 5 / GC C</option>
-                        </select>
-                        <button class="btn-votar" style="width: 30%;" onclick="enviarVoto('${j.nome}')">Votar</button>
-                    </div>
-                </div>
-            `;
+      htmlForm += `
+        <div class="voto-item">
+            <strong>Tier de: ${j.nome}</strong>
+            <select class="select-voto-tier" data-alvo="${j.nome}" style="width: 100%; margin-top: 5px;">
+                <option value="1.0">Tier 1 - Level 20 / GC A+</option>
+                <option value="2.5">Tier 2 - Level 15 / GC A</option>
+                <option value="3.5">Tier 3 - Level 10 / GC B</option>
+                <option value="5.0">Tier 4 - Level 5 / GC C</option>
+            </select>
+        </div>
+      `;
     });
+
+    htmlForm += `<button class="btn-votar" onclick="enviarTodosVotos()">📩 Enviar Todos os Votos</button>`;
+    painel.innerHTML = htmlForm;
   }
 
-  async function enviarVoto(alvo) {
-    const tier = document.getElementById(`tier-${alvo}`).value;
-    const res = await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
-    const msg = await res.text();
-    alert(msg);
+  async function enviarTodosVotos() {
+    const selects = document.querySelectorAll('.select-voto-tier');
+    if (selects.length === 0) return;
+
+    for (const sel of selects) {
+      const alvo = sel.getAttribute('data-alvo');
+      const tier = sel.value;
+      await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
+    }
+
+    alert('Todos os votos foram registrados com sucesso!');
     carregar();
   }
 
   async function balancear() {
+    document.getElementById('painelDraft').style.display = 'none';
     const res = await fetch('/api/balancear');
     if (!res.ok) {
       alert('Erro ao balancear partida!');
       return;
     }
     const times = await res.json();
+    ultimaPartida = times;
 
+    document.getElementById('nomeTime1').innerText = "Counter-Terrorists";
+    document.getElementById('nomeTime2').innerText = "Terrorists";
     document.getElementById('resultado').style.display = 'flex';
+    document.getElementById('discord-container').style.display = 'block';
 
     const ctList = document.getElementById('timeCT');
     const trList = document.getElementById('timeTR');
@@ -164,6 +200,111 @@
 
     times[0].jogadores.forEach(j => ctList.innerHTML += `<li>${j.nome}</li>`);
     times[1].jogadores.forEach(j => trList.innerHTML += `<li>${j.nome}</li>`);
+  }
+
+  async function iniciarDraft() {
+    const res = await fetch('/api/draft/iniciar', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.text();
+      return alert('Erro ao iniciar Draft: ' + err);
+    }
+    const state = await res.json();
+    atualizarTelaDraft(state);
+  }
+
+  async function pickJogador(escolhido) {
+    if (!estadoDraftAtual) return;
+    const capitaoTurno = estadoDraftAtual.turnoAtual;
+
+    const res = await fetch(`/api/draft/pick?capitao=${encodeURIComponent(capitaoTurno)}&escolhido=${encodeURIComponent(escolhido)}`, { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.text();
+      return alert('Erro no Pick: ' + err);
+    }
+    const state = await res.json();
+    atualizarTelaDraft(state);
+  }
+
+  function atualizarTelaDraft(state) {
+    estadoDraftAtual = state;
+    document.getElementById('painelDraft').style.display = 'block';
+    document.getElementById('resultado').style.display = 'flex';
+
+    document.getElementById('nomeTime1').innerText = state.time1.nome;
+    document.getElementById('nomeTime2').innerText = state.time2.nome;
+
+    const ctList = document.getElementById('timeCT');
+    const trList = document.getElementById('timeTR');
+    ctList.innerHTML = '';
+    trList.innerHTML = '';
+
+    state.time1.jogadores.forEach(j => ctList.innerHTML += `<li>${j.nome}</li>`);
+    state.time2.jogadores.forEach(j => trList.innerHTML += `<li>${j.nome}</li>`);
+
+    const statusDiv = document.getElementById('statusTurno');
+    const listaDisp = document.getElementById('listaDisponiveisDraft');
+    listaDisp.innerHTML = '';
+
+    if (state.finalizado) {
+      statusDiv.innerHTML = "✅ **Draft Finalizado!** Times prontos para o confronto.";
+      document.getElementById('discord-container').style.display = 'block';
+      document.getElementById('painelDraft').style.display = 'none';
+
+      ultimaPartida = [
+        { nome: state.time1.nome, jogadores: state.time1.jogadores },
+        { nome: state.time2.nome, jogadores: state.time2.jogadores }
+      ];
+    } else {
+      statusDiv.innerHTML = `👉 Vez do Capitão: <strong>${state.turnoAtual}</strong> escolher!`;
+
+      state.disponiveis.forEach(j => {
+        listaDisp.innerHTML += `
+          <li>
+            <span>${j.nome}</span>
+            <button class="btn-pick" onclick="pickJogador('${j.nome}')">Puxar ${j.nome}</button>
+          </li>
+        `;
+      });
+    }
+  }
+
+  function copiarParaDiscord() {
+    if (!ultimaPartida) return;
+
+    const ct = ultimaPartida[0];
+    const tr = ultimaPartida[1];
+
+    let texto = `⚔️ **PARTIDA CS2 GERADA** ⚔️\n\n`;
+
+    texto += `🛡️ **${ct.nome.toUpperCase()}**\n`;
+    if (ct && ct.jogadores) {
+      ct.jogadores.forEach(j => texto += `• ${j.nome}\n`);
+    }
+
+    texto += `\n💣 **${tr.nome.toUpperCase()}**\n`;
+    if (tr && tr.jogadores) {
+      tr.jogadores.forEach(j => texto += `• ${j.nome}\n`);
+    }
+
+    navigator.clipboard.writeText(texto).then(() => {
+      alert("Escalação copiada! É só colar no Discord (Ctrl+V).");
+    }).catch(err => {
+      console.error("Erro ao copiar: ", err);
+    });
+  }
+
+  async function limparLobby() {
+    if (!confirm("Tem certeza que deseja limpar todo o lobby?")) return;
+
+    const res = await fetch('/api/resetar', { method: 'POST' });
+    const msg = await res.text();
+    alert(msg);
+
+    document.getElementById('resultado').style.display = 'none';
+    document.getElementById('painelDraft').style.display = 'none';
+    document.getElementById('discord-container').style.display = 'none';
+
+    carregar();
   }
 
   carregar();
