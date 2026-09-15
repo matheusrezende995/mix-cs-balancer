@@ -13,13 +13,12 @@ public class BalanceadorService {
             throw new IllegalArgumentException("É necessário ter exatamente 10 jogadores no lobby.");
         }
 
-        // TRAVA RÍGIDA: Garante que todos os 10 jogadores recebam votos antes de montar os times
-        boolean todosVotados = jogadores.stream().allMatch(j -> j.getVotos() != null && !j.getVotos().isEmpty());
+        // Valida se todos possuem habilidade média cadastrada (> 0)
+        boolean todosVotados = jogadores.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
         if (!todosVotados) {
-            throw new IllegalStateException("Todos os 10 jogadores precisam receber votos antes de realizar o balanceamento!");
+            throw new IllegalStateException("Todos os 10 jogadores precisam ser votados antes de realizar o balanceamento!");
         }
 
-        // Ordena os jogadores pela média de habilidade
         jogadores.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia));
 
         List<Jogador> time1 = new ArrayList<>();
@@ -27,7 +26,6 @@ public class BalanceadorService {
         double soma1 = 0;
         double soma2 = 0;
 
-        // Algoritmo Snake Draft
         for (int i = 0; i < jogadores.size(); i++) {
             Jogador j = jogadores.get(i);
             if (soma1 <= soma2) {
@@ -63,7 +61,7 @@ public class BalanceadorService {
             throw new IllegalStateException("É necessário ter exatamente 10 jogadores no lobby para iniciar o Draft!");
         }
 
-        boolean todosVotados = lobby.stream().allMatch(j -> j.getVotos() != null && !j.getVotos().isEmpty());
+        boolean todosVotados = lobby.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
         if (!todosVotados) {
             throw new IllegalStateException("Todos os jogadores precisam receber pelo menos um voto de Tier antes de iniciar!");
         }
