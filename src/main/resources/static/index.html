@@ -10,7 +10,7 @@
 <div class="card">
   <h2>Lobby CS2</h2>
 
-  <!-- FASE 1: ENTRADA E LOBBY (Oculta quando atinge 10 jogadores) -->
+  <!-- FASE 1: ENTRADA E LOBBY -->
   <div id="faseLobby" class="lobby-box">
     <div class="lobby-header">
       <span class="lobby-title">Aguardando Jogadores</span>
@@ -32,7 +32,7 @@
     </div>
   </div>
 
-  <!-- FASE 2: VOTAÇÃO (Só aparece com 10/10 e some após todos votarem) -->
+  <!-- FASE 2: VOTAÇÃO -->
   <div id="faseVotacao" class="section" style="display: none;">
     <h3>Área de Votação</h3>
     <label for="meuUsuario">Selecione QUEM é você:</label>
@@ -47,35 +47,24 @@
     </div>
   </div>
 
-  <!-- FASE 3: FORMAÇÃO DE TIMES (Só aparece após a votação estar concluída) -->
+  <!-- FASE 3: FORMAÇÃO RÁPIDA DE TIMES -->
   <div id="faseFormacao" class="section" style="display: none;">
-    <h3>Formação de Times</h3>
-    <p style="color: #8b949e; margin-bottom: 15px;">Todos os votos foram registrados! Escolha como formar as equipes:</p>
-
-    <button class="btn-balancear" onclick="balancear()">⚡ Balanceamento Automático</button>
-    <button class="btn-draft" onclick="iniciarDraft()">👑 Modo Capitães (Draft)</button>
-
-    <!-- PAINEL DO MODO DRAFT -->
-    <div id="painelDraft" style="display: none; margin-top: 20px; text-align: left;">
-      <div id="statusTurno" class="turn-highlight"></div>
-      <p><strong>Jogadores Disponíveis:</strong></p>
-      <ul id="listaDisponiveisDraft"></ul>
-    </div>
+    <h3>Times Gerados</h3>
 
     <!-- RESULTADO DOS TIMES -->
-    <div class="times-container" id="resultado" style="display:none;">
+    <div class="times-container" id="resultado">
       <div class="time-box">
-        <h4 class="ct-title" id="nomeTime1">Counter-Terrorists</h4>
+        <h4 class="ct-title">Counter-Terrorists</h4>
         <ul id="timeCT"></ul>
       </div>
       <div class="time-box">
-        <h4 class="tr-title" id="nomeTime2">Terrorists</h4>
+        <h4 class="tr-title">Terrorists</h4>
         <ul id="timeTR"></ul>
       </div>
     </div>
 
     <!-- BOTÃO DISCORD E NOVO JOGO -->
-    <div id="discord-container" style="display: none; margin-top: 15px;">
+    <div id="discord-container" style="margin-top: 15px;">
       <button class="btn-discord" onclick="copiarParaDiscord()">📋 Copiar para o Discord</button>
       <div style="margin-top: 10px;">
         <button class="btn-reset-small" onclick="limparLobby()">🔄 Reiniciar Lobby para Nova Partida</button>
@@ -87,7 +76,6 @@
 <script>
   let todosJogadores = [];
   let ultimaPartida = null;
-  let estadoDraftAtual = null;
   let meusVotosLocais = {};
 
   async function carregar() {
@@ -111,7 +99,6 @@
 
     selectUsuario.value = usuarioSelecionado;
 
-    // GERENCIAMENTO RÍGIDO DE FASES:
     const faseLobby = document.getElementById('faseLobby');
     const faseVotacao = document.getElementById('faseVotacao');
     const faseFormacao = document.getElementById('faseFormacao');
@@ -119,21 +106,23 @@
     const todosVotados = total === 10 && todosJogadores.every(j => j.habilidadeMedia > 0);
 
     if (total < 10) {
-      // FASE 1: Sala incompleta
       faseLobby.style.display = 'block';
       faseVotacao.style.display = 'none';
       faseFormacao.style.display = 'none';
-    } else if (total === 10 && !todosVotados) {
-      // FASE 2: Sala cheia, aguardando votação (Oculta caixa de entrada)
+    } else if (total === 10 && (!todosVotados || !window.votosConcluidosLocais)) {
       faseLobby.style.display = 'none';
       faseVotacao.style.display = 'block';
       faseFormacao.style.display = 'none';
       renderizarVotacao();
-    } else if (todosVotados) {
-      // FASE 3: Votação concluída (Oculta Votação e revela Formação)
+    } else {
       faseLobby.style.display = 'none';
       faseVotacao.style.display = 'none';
       faseFormacao.style.display = 'block';
+
+      // Gera automaticamente se ainda não tiver gerado nesta sessão
+      if (!ultimaPartida) {
+        balancear();
+      }
     }
   }
 
@@ -191,7 +180,7 @@
     htmlForm += `
       <div style="margin-top: 15px;">
         <button class="btn-votar" onclick="enviarTodosVotos()" ${totalVotados < totalOutros ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-          🚀 Confirmar Votos (${totalVotados}/${totalOutros})
+          🚀 Confirmar Votos e Gerar Times (${totalVotados}/${totalOutros})
         </button>
       </div>
     `;
@@ -221,13 +210,13 @@
       await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
     }
 
-    alert('🎉 Seus votos foram salvos!');
+    alert('🎉 Votos salvos! Gerando equipes...');
     meusVotosLocais = {};
+    window.votosConcluidosLocais = true;
     carregar();
   }
 
   async function balancear() {
-    document.getElementById('painelDraft').style.display = 'none';
     const res = await fetch('/api/balancear');
     if (!res.ok) {
       const err = await res.text();
@@ -236,11 +225,6 @@
     const times = await res.json();
     ultimaPartida = times;
 
-    document.getElementById('nomeTime1').innerText = "Counter-Terrorists";
-    document.getElementById('nomeTime2').innerText = "Terrorists";
-    document.getElementById('resultado').style.display = 'flex';
-    document.getElementById('discord-container').style.display = 'block';
-
     const ctList = document.getElementById('timeCT');
     const trList = document.getElementById('timeTR');
     ctList.innerHTML = '';
@@ -248,72 +232,6 @@
 
     times[0].jogadores.forEach(j => ctList.innerHTML += `<li>${j.nome}</li>`);
     times[1].jogadores.forEach(j => trList.innerHTML += `<li>${j.nome}</li>`);
-  }
-
-  async function iniciarDraft() {
-    const res = await fetch('/api/draft/iniciar', { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.text();
-      return alert('Aviso: ' + err);
-    }
-    const state = await res.json();
-    atualizarTelaDraft(state);
-  }
-
-  async function pickJogador(escolhido) {
-    if (!estadoDraftAtual) return;
-    const capitaoTurno = estadoDraftAtual.turnoAtual;
-
-    const res = await fetch(`/api/draft/pick?capitao=${encodeURIComponent(capitaoTurno)}&escolhido=${encodeURIComponent(escolhido)}`, { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.text();
-      return alert('Erro no Pick: ' + err);
-    }
-    const state = await res.json();
-    atualizarTelaDraft(state);
-  }
-
-  function atualizarTelaDraft(state) {
-    estadoDraftAtual = state;
-    document.getElementById('painelDraft').style.display = 'block';
-    document.getElementById('resultado').style.display = 'flex';
-
-    document.getElementById('nomeTime1').innerText = state.time1.nome;
-    document.getElementById('nomeTime2').innerText = state.time2.nome;
-
-    const ctList = document.getElementById('timeCT');
-    const trList = document.getElementById('timeTR');
-    ctList.innerHTML = '';
-    trList.innerHTML = '';
-
-    state.time1.jogadores.forEach(j => ctList.innerHTML += `<li>${j.nome}</li>`);
-    state.time2.jogadores.forEach(j => trList.innerHTML += `<li>${j.nome}</li>`);
-
-    const statusDiv = document.getElementById('statusTurno');
-    const listaDisp = document.getElementById('listaDisponiveisDraft');
-    listaDisp.innerHTML = '';
-
-    if (state.finalizado) {
-      statusDiv.innerHTML = "✅ **Draft Finalizado!** Times prontos para o confronto.";
-      document.getElementById('discord-container').style.display = 'block';
-      document.getElementById('painelDraft').style.display = 'none';
-
-      ultimaPartida = [
-        { nome: state.time1.nome, jogadores: state.time1.jogadores },
-        { nome: state.time2.nome, jogadores: state.time2.jogadores }
-      ];
-    } else {
-      statusDiv.innerHTML = `👉 Vez do Capitão: <strong>${state.turnoAtual}</strong> escolher!`;
-
-      state.disponiveis.forEach(j => {
-        listaDisp.innerHTML += `
-          <li>
-            <span>${j.nome}</span>
-            <button class="btn-pick" onclick="pickJogador('${j.nome}')">Puxar ${j.nome}</button>
-          </li>
-        `;
-      });
-    }
   }
 
   function copiarParaDiscord() {
@@ -337,15 +255,10 @@
   async function limparLobby() {
     if (!confirm("Tem certeza que deseja resetar a sala?")) return;
 
-    const res = await fetch('/api/resetar', { method: 'POST' });
-    const msg = await res.text();
-    alert(msg);
-
+    await fetch('/api/resetar', { method: 'POST' });
     meusVotosLocais = {};
-    document.getElementById('resultado').style.display = 'none';
-    document.getElementById('painelDraft').style.display = 'none';
-    document.getElementById('discord-container').style.display = 'none';
-
+    window.votosConcluidosLocais = false;
+    ultimaPartida = null;
     carregar();
   }
 
