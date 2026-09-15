@@ -70,6 +70,9 @@
   let ultimaPartida = null;
   let estadoDraftAtual = null;
 
+  // Armazena os votos locais de quem está usando a tela na sessão: { "NickAlvo": 2.5 }
+  let meusVotosLocais = {};
+
   async function carregar() {
     const res = await fetch('/api/jogadores');
     todosJogadores = await res.json();
@@ -109,47 +112,88 @@
     painel.innerHTML = '';
 
     if (!meuNick) {
-      painel.innerHTML = '<p style="color: #8f98a0;">Selecione seu nick acima para votar nos outros jogadores.</p>';
+      painel.innerHTML = '<p style="color: #8f98a0; text-align: center;">Selecione seu nick acima para liberar os cards de votação.</p>';
+      return;
+    }
+
+    if (todosJogadores.length < 10) {
+      painel.innerHTML = `<p style="color: #e3b341; text-align: center; font-weight: bold;">
+        ⏳ Aguardando lobby encher (${todosJogadores.length}/10)... A votação será liberada com 10 jogadores!
+      </p>`;
       return;
     }
 
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
-    if (outros.length === 0) {
-      painel.innerHTML = '<p style="color: #8f98a0;">Aguardando mais jogadores entrarem no lobby...</p>';
-      return;
-    }
-
-    let htmlForm = '';
+    let htmlForm = '<div class="cards-voto-grid">';
     outros.forEach(j => {
+      const votoAtual = meusVotosLocais[j.nome];
+      const jaVotou = votoAtual !== undefined;
+
       htmlForm += `
-        <div class="voto-item" style="margin-bottom: 10px;">
-            <strong>Tier de: ${j.nome}</strong>
-            <select class="select-voto-tier" data-alvo="${j.nome}">
-                <option value="1.0">Tier 1 - Level 20 / GC A+</option>
-                <option value="2.5">Tier 2 - Level 15 / GC A</option>
-                <option value="3.5">Tier 3 - Level 10 / GC B</option>
-                <option value="5.0">Tier 4 - Level 5 / GC C</option>
-            </select>
+        <div class="card-voto-item ${jaVotou ? 'voto-confirmado' : ''}">
+          <div class="voto-header">
+            <span class="voto-nome">${j.nome}</span>
+            ${jaVotou ? '<span class="badge-voted">✓ Votado</span>' : '<span class="badge-pending">Pendente</span>'}
+          </div>
+          <div class="tier-buttons">
+            <button class="btn-tier t1 ${votoAtual === 1.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 1.0)">
+              T1 <small>(GC A+)</small>
+            </button>
+            <button class="btn-tier t2 ${votoAtual === 2.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 2.5)">
+              T2 <small>(GC A)</small>
+            </button>
+            <button class="btn-tier t3 ${votoAtual === 3.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 3.5)">
+              T3 <small>(GC B)</small>
+            </button>
+            <button class="btn-tier t4 ${votoAtual === 5.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 5.0)">
+              T4 <small>(GC C)</small>
+            </button>
+          </div>
         </div>
       `;
     });
+    htmlForm += '</div>';
 
-    htmlForm += `<button class="btn-votar" onclick="enviarTodosVotos()">📩 Enviar Todos os Votos</button>`;
+    const totalOutros = outros.length;
+    const totalVotados = Object.keys(meusVotosLocais).length;
+
+    htmlForm += `
+      <div style="margin-top: 15px;">
+        <button class="btn-votar" onclick="enviarTodosVotos()" ${totalVotados < totalOutros ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
+          🚀 Confirmar Todos os Votos (${totalVotados}/${totalOutros})
+        </button>
+      </div>
+    `;
+
     painel.innerHTML = htmlForm;
   }
 
-  async function enviarTodosVotos() {
-    const selects = document.querySelectorAll('.select-voto-tier');
-    if (selects.length === 0) return;
+  async function selecionarTier(alvo, tier) {
+    if (meusVotosLocais[alvo] !== undefined) {
+      // Impede re-votação no mesmo jogador
+      alert(`Você já votou no ${alvo}! O voto não pode ser alterado nesta rodada.`);
+      return;
+    }
 
-    for (const sel of selects) {
-      const alvo = sel.getAttribute('data-alvo');
-      const tier = sel.value;
+    meusVotosLocais[alvo] = tier;
+    renderizarVotacao();
+  }
+
+  async function enviarTodosVotos() {
+    const meuNick = document.getElementById('meuUsuario').value;
+    const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
+
+    if (Object.keys(meusVotosLocais).length < outros.length) {
+      return alert("Você precisa votar no Tier de todos os jogadores antes de confirmar!");
+    }
+
+    for (const alvo in meusVotosLocais) {
+      const tier = meusVotosLocais[alvo];
       await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
     }
 
-    alert('Todos os votos foram registrados com sucesso!');
+    alert('🎉 Todos os seus votos foram registrados com sucesso!');
     carregar();
   }
 
@@ -157,7 +201,8 @@
     document.getElementById('painelDraft').style.display = 'none';
     const res = await fetch('/api/balancear');
     if (!res.ok) {
-      alert('Erro ao balancear partida!');
+      const err = await res.text();
+      alert('Aviso: ' + err);
       return;
     }
     const times = await res.json();
@@ -181,7 +226,7 @@
     const res = await fetch('/api/draft/iniciar', { method: 'POST' });
     if (!res.ok) {
       const err = await res.text();
-      return alert('Erro ao iniciar Draft: ' + err);
+      return alert('Aviso: ' + err);
     }
     const state = await res.json();
     atualizarTelaDraft(state);
@@ -275,6 +320,7 @@
     const msg = await res.text();
     alert(msg);
 
+    meusVotosLocais = {};
     document.getElementById('resultado').style.display = 'none';
     document.getElementById('painelDraft').style.display = 'none';
     document.getElementById('discord-container').style.display = 'none';

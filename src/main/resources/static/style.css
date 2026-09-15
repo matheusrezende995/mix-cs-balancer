@@ -139,3 +139,85 @@ li {
     margin-bottom: 12px;
     text-align: center;
 }
+/* Card de votação em formato de grid */
+.cards-voto-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.card-voto-item {
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    transition: 0.2s;
+}
+
+.card-voto-item.voto-confirmado {
+    border-color: #238636;
+    background: rgba(35, 134, 54, 0.15);
+}
+
+.voto-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.voto-nome {
+    font-weight: bold;
+    font-size: 15px;
+    color: #ffffff;
+}
+
+.badge-pending {
+    font-size: 11px;
+    background: #30363d;
+    color: #8b949e;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.badge-voted {
+    font-size: 11px;
+    background: #238636;
+    color: #ffffff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+}
+
+/* Botões do Tier */
+.tier-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-tier {
+    flex: 1;
+    padding: 8px 4px;
+    margin: 0;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #21262d;
+    color: #c9d1d9;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-tier small {
+    display: block;
+    font-size: 9px;
+    font-weight: normal;
+    opacity: 0.8;
+}
+
+.btn-tier.t1:hover, .btn-tier.t1.active { background: #8957e5; color: white; border-color: #a371f7; }
+.btn-tier.t2:hover, .btn-tier.t2.active { background: #1f6feb; color: white; border-color: #388bfd; }
+.btn-tier.t3:hover, .btn-tier.t3.active { background: #d29922; color: white; border-color: #e3b341; }
+.btn-tier.t4:hover, .btn-tier.t4.active { background: #da3633; color: white; border-color: #f85149; }
