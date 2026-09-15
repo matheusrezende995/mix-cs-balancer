@@ -10,8 +10,8 @@
 <div class="card">
   <h2>Lobby CS2</h2>
 
-  <!-- FASE 1: ENTRADA E LOBBY (Sempre visível inicialmente) -->
-  <div class="lobby-box">
+  <!-- FASE 1: ENTRADA E LOBBY (Oculta quando atinge 10 jogadores) -->
+  <div id="faseLobby" class="lobby-box">
     <div class="lobby-header">
       <span class="lobby-title">Aguardando Jogadores</span>
       <span class="lobby-badge" id="countBadge">0/10</span>
@@ -32,7 +32,7 @@
     </div>
   </div>
 
-  <!-- FASE 2: VOTAÇÃO (Só aparece quando o lobby atinge 10/10) -->
+  <!-- FASE 2: VOTAÇÃO (Só aparece com 10/10 e some após todos votarem) -->
   <div id="faseVotacao" class="section" style="display: none;">
     <h3>Área de Votação</h3>
     <label for="meuUsuario">Selecione QUEM é você:</label>
@@ -41,11 +41,17 @@
     </select>
 
     <div id="painelVotacao" style="margin-top: 15px;"></div>
+
+    <div style="text-align: right; margin-top: 15px;">
+      <button class="btn-reset-small" onclick="limparLobby()">🗑️ Resetar Lobby</button>
+    </div>
   </div>
 
-  <!-- FASE 3: FORMAÇÃO DE TIMES (Só aparece quando o lobby atinge 10/10) -->
+  <!-- FASE 3: FORMAÇÃO DE TIMES (Só aparece após a votação estar concluída) -->
   <div id="faseFormacao" class="section" style="display: none;">
     <h3>Formação de Times</h3>
+    <p style="color: #8b949e; margin-bottom: 15px;">Todos os votos foram registrados! Escolha como formar as equipes:</p>
+
     <button class="btn-balancear" onclick="balancear()">⚡ Balanceamento Automático</button>
     <button class="btn-draft" onclick="iniciarDraft()">👑 Modo Capitães (Draft)</button>
 
@@ -68,9 +74,12 @@
       </div>
     </div>
 
-    <!-- BOTÃO DISCORD -->
+    <!-- BOTÃO DISCORD E NOVO JOGO -->
     <div id="discord-container" style="display: none; margin-top: 15px;">
       <button class="btn-discord" onclick="copiarParaDiscord()">📋 Copiar para o Discord</button>
+      <div style="margin-top: 10px;">
+        <button class="btn-reset-small" onclick="limparLobby()">🔄 Reiniciar Lobby para Nova Partida</button>
+      </div>
     </div>
   </div>
 </div>
@@ -102,15 +111,29 @@
 
     selectUsuario.value = usuarioSelecionado;
 
-    // LÓGICA DE CONTROLE DE FASES:
-    // Se tiver 10 jogadores, exibe a Votação e Formação; caso contrário, esconde.
-    if (total === 10) {
-      document.getElementById('faseVotacao').style.display = 'block';
-      document.getElementById('faseFormacao').style.display = 'block';
+    // GERENCIAMENTO RÍGIDO DE FASES:
+    const faseLobby = document.getElementById('faseLobby');
+    const faseVotacao = document.getElementById('faseVotacao');
+    const faseFormacao = document.getElementById('faseFormacao');
+
+    const todosVotados = total === 10 && todosJogadores.every(j => j.habilidadeMedia > 0);
+
+    if (total < 10) {
+      // FASE 1: Sala incompleta
+      faseLobby.style.display = 'block';
+      faseVotacao.style.display = 'none';
+      faseFormacao.style.display = 'none';
+    } else if (total === 10 && !todosVotados) {
+      // FASE 2: Sala cheia, aguardando votação (Oculta caixa de entrada)
+      faseLobby.style.display = 'none';
+      faseVotacao.style.display = 'block';
+      faseFormacao.style.display = 'none';
       renderizarVotacao();
-    } else {
-      document.getElementById('faseVotacao').style.display = 'none';
-      document.getElementById('faseFormacao').style.display = 'none';
+    } else if (todosVotados) {
+      // FASE 3: Votação concluída (Oculta Votação e revela Formação)
+      faseLobby.style.display = 'none';
+      faseVotacao.style.display = 'none';
+      faseFormacao.style.display = 'block';
     }
   }
 
@@ -198,7 +221,8 @@
       await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
     }
 
-    alert('🎉 Todos os votos foram registrados!');
+    alert('🎉 Seus votos foram salvos!');
+    meusVotosLocais = {};
     carregar();
   }
 
@@ -311,7 +335,7 @@
   }
 
   async function limparLobby() {
-    if (!confirm("Tem certeza que deseja limpar todo o lobby?")) return;
+    if (!confirm("Tem certeza que deseja resetar a sala?")) return;
 
     const res = await fetch('/api/resetar', { method: 'POST' });
     const msg = await res.text();
