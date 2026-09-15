@@ -7,22 +7,33 @@
 </head>
 <body>
 
-<!-- CARD ESCURO CENTRALIZADO -->
 <div class="card">
-  <h2>Lobby CS2 (10 Players)</h2>
+  <h2>Lobby CS2</h2>
 
-  <!-- ETAPA 1: Cadastro -->
-  <div>
-    <input type="text" id="nome" placeholder="Digite seu Nick no CS">
-    <button onclick="entrar()">Entrar no Lobby</button>
+  <!-- FASE 1: ENTRADA E LOBBY (Sempre visível inicialmente) -->
+  <div class="lobby-box">
+    <div class="lobby-header">
+      <span class="lobby-title">Aguardando Jogadores</span>
+      <span class="lobby-badge" id="countBadge">0/10</span>
+    </div>
+
+    <div class="input-group">
+      <input type="text" id="nome" placeholder="Digite seu Nick no CS">
+      <button class="btn-entrar" onclick="entrar()">Entrar</button>
+    </div>
+
+    <div class="lobby-confirmados">
+      <p style="margin: 5px 0; font-size: 13px; color: #8b949e;">Jogadores na sala:</p>
+      <ul id="listaLobby"></ul>
+    </div>
+
+    <div style="text-align: right; margin-top: 10px;">
+      <button class="btn-reset-small" onclick="limparLobby()">🗑️ Limpar Lobby</button>
+    </div>
   </div>
 
-  <h3>Jogadores no Lobby (<span id="count">0</span>/10)</h3>
-  <button class="btn-reset" onclick="limparLobby()">🗑️ Limpar Lobby</button>
-  <ul id="listaLobby"></ul>
-
-  <!-- ETAPA 2: Votação -->
-  <div class="section">
+  <!-- FASE 2: VOTAÇÃO (Só aparece quando o lobby atinge 10/10) -->
+  <div id="faseVotacao" class="section" style="display: none;">
     <h3>Área de Votação</h3>
     <label for="meuUsuario">Selecione QUEM é você:</label>
     <select id="meuUsuario" onchange="renderizarVotacao()">
@@ -32,8 +43,8 @@
     <div id="painelVotacao" style="margin-top: 15px;"></div>
   </div>
 
-  <!-- ETAPA 3: Balanceamento ou Draft -->
-  <div class="section">
+  <!-- FASE 3: FORMAÇÃO DE TIMES (Só aparece quando o lobby atinge 10/10) -->
+  <div id="faseFormacao" class="section" style="display: none;">
     <h3>Formação de Times</h3>
     <button class="btn-balancear" onclick="balancear()">⚡ Balanceamento Automático</button>
     <button class="btn-draft" onclick="iniciarDraft()">👑 Modo Capitães (Draft)</button>
@@ -41,7 +52,6 @@
     <!-- PAINEL DO MODO DRAFT -->
     <div id="painelDraft" style="display: none; margin-top: 20px; text-align: left;">
       <div id="statusTurno" class="turn-highlight"></div>
-
       <p><strong>Jogadores Disponíveis:</strong></p>
       <ul id="listaDisponiveisDraft"></ul>
     </div>
@@ -69,15 +79,14 @@
   let todosJogadores = [];
   let ultimaPartida = null;
   let estadoDraftAtual = null;
-
-  // Armazena os votos locais de quem está usando a tela na sessão: { "NickAlvo": 2.5 }
   let meusVotosLocais = {};
 
   async function carregar() {
     const res = await fetch('/api/jogadores');
     todosJogadores = await res.json();
 
-    document.getElementById('count').innerText = todosJogadores.length;
+    const total = todosJogadores.length;
+    document.getElementById('countBadge').innerText = `${total}/10`;
 
     const listaLobby = document.getElementById('listaLobby');
     listaLobby.innerHTML = '';
@@ -87,22 +96,35 @@
     selectUsuario.innerHTML = '<option value="">-- Selecione seu Nick --</option>';
 
     todosJogadores.forEach(j => {
-      listaLobby.innerHTML += `<li><span>${j.nome}</span></li>`;
+      listaLobby.innerHTML += `<li class="player-tag"><span>${j.nome}</span></li>`;
       selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome}</option>`;
     });
 
     selectUsuario.value = usuarioSelecionado;
-    renderizarVotacao();
+
+    // LÓGICA DE CONTROLE DE FASES:
+    // Se tiver 10 jogadores, exibe a Votação e Formação; caso contrário, esconde.
+    if (total === 10) {
+      document.getElementById('faseVotacao').style.display = 'block';
+      document.getElementById('faseFormacao').style.display = 'block';
+      renderizarVotacao();
+    } else {
+      document.getElementById('faseVotacao').style.display = 'none';
+      document.getElementById('faseFormacao').style.display = 'none';
+    }
   }
 
   async function entrar() {
-    const nome = document.getElementById('nome').value;
+    const nomeInput = document.getElementById('nome');
+    const nome = nomeInput.value.trim();
     if (!nome) return alert('Digite seu nick!');
 
     const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
-    const msg = await res.text();
-    alert(msg);
-    document.getElementById('nome').value = '';
+    if (!res.ok) {
+      const err = await res.text();
+      return alert(err);
+    }
+    nomeInput.value = '';
     carregar();
   }
 
@@ -112,14 +134,7 @@
     painel.innerHTML = '';
 
     if (!meuNick) {
-      painel.innerHTML = '<p style="color: #8f98a0; text-align: center;">Selecione seu nick acima para liberar os cards de votação.</p>';
-      return;
-    }
-
-    if (todosJogadores.length < 10) {
-      painel.innerHTML = `<p style="color: #e3b341; text-align: center; font-weight: bold;">
-        ⏳ Aguardando lobby encher (${todosJogadores.length}/10)... A votação será liberada com 10 jogadores!
-      </p>`;
+      painel.innerHTML = '<p style="color: #8f98a0; text-align: center;">Selecione seu nick acima para votar nos jogadores.</p>';
       return;
     }
 
@@ -137,18 +152,10 @@
             ${jaVotou ? '<span class="badge-voted">✓ Votado</span>' : '<span class="badge-pending">Pendente</span>'}
           </div>
           <div class="tier-buttons">
-            <button class="btn-tier t1 ${votoAtual === 1.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 1.0)">
-              T1 <small>(GC A+)</small>
-            </button>
-            <button class="btn-tier t2 ${votoAtual === 2.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 2.5)">
-              T2 <small>(GC A)</small>
-            </button>
-            <button class="btn-tier t3 ${votoAtual === 3.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 3.5)">
-              T3 <small>(GC B)</small>
-            </button>
-            <button class="btn-tier t4 ${votoAtual === 5.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 5.0)">
-              T4 <small>(GC C)</small>
-            </button>
+            <button class="btn-tier t1 ${votoAtual === 1.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 1.0)">T1 <small>(GC A+)</small></button>
+            <button class="btn-tier t2 ${votoAtual === 2.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 2.5)">T2 <small>(GC A)</small></button>
+            <button class="btn-tier t3 ${votoAtual === 3.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 3.5)">T3 <small>(GC B)</small></button>
+            <button class="btn-tier t4 ${votoAtual === 5.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 5.0)">T4 <small>(GC C)</small></button>
           </div>
         </div>
       `;
@@ -161,7 +168,7 @@
     htmlForm += `
       <div style="margin-top: 15px;">
         <button class="btn-votar" onclick="enviarTodosVotos()" ${totalVotados < totalOutros ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-          🚀 Confirmar Todos os Votos (${totalVotados}/${totalOutros})
+          🚀 Confirmar Votos (${totalVotados}/${totalOutros})
         </button>
       </div>
     `;
@@ -169,13 +176,11 @@
     painel.innerHTML = htmlForm;
   }
 
-  async function selecionarTier(alvo, tier) {
+  function selecionarTier(alvo, tier) {
     if (meusVotosLocais[alvo] !== undefined) {
-      // Impede re-votação no mesmo jogador
-      alert(`Você já votou no ${alvo}! O voto não pode ser alterado nesta rodada.`);
+      alert(`Você já registrou o voto para ${alvo}!`);
       return;
     }
-
     meusVotosLocais[alvo] = tier;
     renderizarVotacao();
   }
@@ -185,7 +190,7 @@
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
     if (Object.keys(meusVotosLocais).length < outros.length) {
-      return alert("Você precisa votar no Tier de todos os jogadores antes de confirmar!");
+      return alert("Vote no Tier de todos os jogadores antes de confirmar!");
     }
 
     for (const alvo in meusVotosLocais) {
@@ -193,7 +198,7 @@
       await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
     }
 
-    alert('🎉 Todos os seus votos foram registrados com sucesso!');
+    alert('🎉 Todos os votos foram registrados!');
     carregar();
   }
 
@@ -202,8 +207,7 @@
     const res = await fetch('/api/balancear');
     if (!res.ok) {
       const err = await res.text();
-      alert('Aviso: ' + err);
-      return;
+      return alert('Aviso: ' + err);
     }
     const times = await res.json();
     ultimaPartida = times;
@@ -295,21 +299,14 @@
     const tr = ultimaPartida[1];
 
     let texto = `⚔️ **PARTIDA CS2 GERADA** ⚔️\n\n`;
-
     texto += `🛡️ **${ct.nome.toUpperCase()}**\n`;
-    if (ct && ct.jogadores) {
-      ct.jogadores.forEach(j => texto += `• ${j.nome}\n`);
-    }
+    if (ct && ct.jogadores) ct.jogadores.forEach(j => texto += `• ${j.nome}\n`);
 
     texto += `\n💣 **${tr.nome.toUpperCase()}**\n`;
-    if (tr && tr.jogadores) {
-      tr.jogadores.forEach(j => texto += `• ${j.nome}\n`);
-    }
+    if (tr && tr.jogadores) tr.jogadores.forEach(j => texto += `• ${j.nome}\n`);
 
     navigator.clipboard.writeText(texto).then(() => {
-      alert("Escalação copiada! É só colar no Discord (Ctrl+V).");
-    }).catch(err => {
-      console.error("Erro ao copiar: ", err);
+      alert("Escalação copiada para a área de transferência!");
     });
   }
 

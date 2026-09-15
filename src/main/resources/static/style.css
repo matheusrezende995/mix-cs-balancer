@@ -221,3 +221,83 @@ li {
 .btn-tier.t2:hover, .btn-tier.t2.active { background: #1f6feb; color: white; border-color: #388bfd; }
 .btn-tier.t3:hover, .btn-tier.t3.active { background: #d29922; color: white; border-color: #e3b341; }
 .btn-tier.t4:hover, .btn-tier.t4.active { background: #da3633; color: white; border-color: #f85149; }
+
+/* Caixa estilizada do Lobby de Entrada */
+.lobby-box {
+    background: rgba(13, 17, 23, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.lobby-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.lobby-title {
+    font-weight: bold;
+    font-size: 14px;
+    color: #c9d1d9;
+}
+
+.lobby-badge {
+    background: #238636;
+    color: white;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+}
+
+.input-group {
+    display: flex;
+    gap: 8px;
+}
+
+.input-group input {
+    margin: 0;
+    flex: 1;
+}
+
+.btn-entrar {
+    width: auto;
+    padding: 0 20px;
+    margin: 0;
+    background-color: #238636;
+}
+
+.btn-reset-small {
+    width: auto;
+    background: transparent;
+    border: none;
+    color: #f85149;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 8px;
+    margin: 0;
+}
+
+.btn-reset-small:hover {
+    text-decoration: underline;
+    background: transparent;
+}
+
+.lobby-confirmados ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.player-tag {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 13px;
+    margin: 0;
+}

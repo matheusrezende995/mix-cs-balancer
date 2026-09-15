@@ -13,22 +13,21 @@ public class BalanceadorService {
             throw new IllegalArgumentException("É necessário ter exatamente 10 jogadores no lobby.");
         }
 
-        // REGRA DE SEGURANÇA: Exige que todos tenham pelo menos 1 voto registrado
-        boolean todosVotados = jogadores.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
+        // TRAVA RÍGIDA: Garante que todos os 10 jogadores recebam votos antes de montar os times
+        boolean todosVotados = jogadores.stream().allMatch(j -> j.getVotos() != null && !j.getVotos().isEmpty());
         if (!todosVotados) {
-            throw new IllegalStateException("Todos os 10 jogadores precisam ser votados antes de balancear os times!");
+            throw new IllegalStateException("Todos os 10 jogadores precisam receber votos antes de realizar o balanceamento!");
         }
 
-        // Ordena os jogadores pela média de votos
+        // Ordena os jogadores pela média de habilidade
         jogadores.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia));
 
         List<Jogador> time1 = new ArrayList<>();
         List<Jogador> time2 = new ArrayList<>();
-
         double soma1 = 0;
         double soma2 = 0;
 
-        // Distribuição Snake Draft
+        // Algoritmo Snake Draft
         for (int i = 0; i < jogadores.size(); i++) {
             Jogador j = jogadores.get(i);
             if (soma1 <= soma2) {
@@ -60,13 +59,11 @@ public class BalanceadorService {
     // --- MODO CAPITÃES (DRAFT) ---
 
     public DraftState iniciarDraft(List<Jogador> lobby) {
-        // Validação 1: Exige exatamente 10 jogadores no lobby
         if (lobby.size() != 10) {
             throw new IllegalStateException("É necessário ter exatamente 10 jogadores no lobby para iniciar o Draft!");
         }
 
-        // Validação 2: Verificar se todos os jogadores já receberam pelo menos 1 voto
-        boolean todosVotados = lobby.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
+        boolean todosVotados = lobby.stream().allMatch(j -> j.getVotos() != null && !j.getVotos().isEmpty());
         if (!todosVotados) {
             throw new IllegalStateException("Todos os jogadores precisam receber pelo menos um voto de Tier antes de iniciar!");
         }
@@ -74,7 +71,6 @@ public class BalanceadorService {
         List<Jogador> ordenados = new ArrayList<>(lobby);
         ordenados.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia));
 
-        // Os dois melhores/piores tiers viram os capitães automaticamente
         Jogador c1 = ordenados.remove(0);
         Jogador c2 = ordenados.remove(0);
 
@@ -96,7 +92,6 @@ public class BalanceadorService {
             throw new IllegalStateException("Nenhum draft em andamento.");
         }
 
-        // Validação estrita: Apenas o capitão do turno atual pode realizar o pick
         if (!draftAtual.getTurnoAtual().equalsIgnoreCase(nomeCapitao)) {
             throw new IllegalArgumentException("Não é o seu turno de escolher! Aguarde a vez de: " + draftAtual.getTurnoAtual());
         }
@@ -108,7 +103,6 @@ public class BalanceadorService {
 
         draftAtual.getDisponiveis().remove(escolhido);
 
-        // Adiciona ao time do capitão correto e alterna o turno
         if (nomeCapitao.equalsIgnoreCase(draftAtual.getCapitao1().getNome())) {
             draftAtual.getTime1().getJogadores().add(escolhido);
             draftAtual.setTurnoAtual(draftAtual.getCapitao2().getNome());
