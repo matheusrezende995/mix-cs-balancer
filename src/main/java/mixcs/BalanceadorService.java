@@ -54,7 +54,7 @@ public class BalanceadorService {
         return partida;
     }
 
-    // --- MODO CAPITÃES (DRAFT) ---
+    // --- MODO CAPITÃES (DRAFT) -----
 
     public DraftState iniciarDraft(List<Jogador> lobby) {
         if (lobby.size() != 10) {
