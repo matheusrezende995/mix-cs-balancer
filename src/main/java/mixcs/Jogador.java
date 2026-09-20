@@ -1,6 +1,8 @@
 package mixcs;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "jogadores")
@@ -10,8 +12,11 @@ public class Jogador {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, unique = true)
     private String nome;
+
+    @OneToMany(mappedBy = "alvo", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Voto> votosRecebidos = new ArrayList<>();
 
     public Jogador() {}
 
@@ -29,5 +34,21 @@ public class Jogador {
 
     public void setNome(String nome) {
         this.nome = nome;
+    }
+
+    public List<Voto> getVotosRecebidos() {
+        return votosRecebidos;
+    }
+
+    // Método exigido pelo BalanceadorService para calcular a média de habilidade/tier
+    public double getHabilidadeMedia() {
+        if (votosRecebidos == null || votosRecebidos.isEmpty()) {
+            return 0.0;
+        }
+        double soma = 0.0;
+        for (Voto v : votosRecebidos) {
+            soma += v.getTier();
+        }
+        return soma / votosRecebidos.size();
     }
 }
