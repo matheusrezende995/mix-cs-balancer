@@ -4,39 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MIX CS2 - Balanceador de Partidas</title>
-  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Ícones do Bootstrap -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body class="bg-dark text-light min-vh-100 py-4">
 
-<div class="container" style="max-width: 850px;">
+<div class="container-fluid px-4" style="max-width: 1200px;">
 
   <!-- CABEÇALHO -->
   <div class="text-center mb-4">
     <h1 class="display-5 fw-bold text-warning"><i class="bi bi-crosshair"></i> MIX CS2</h1>
-    <p class="text-secondary">Votação de Tiers e Balanceamento Automático</p>
+    <p class="text-secondary">Balanceamento Automático e Matriz de Votação</p>
   </div>
 
-  <!-- FASE 1: ENTRADA E LOBBY -->
-  <div id="faseLobby" class="card border-secondary bg-body-tertiary shadow">
+  <!-- FASE 1: LOBBY -->
+  <div id="faseLobby" class="card border-secondary bg-body-tertiary shadow mx-auto" style="max-width: 800px;">
     <div class="card-header d-flex justify-content-between align-items-center border-secondary">
       <h5 class="mb-0"><i class="bi bi-people-fill"></i> Sala de Espera</h5>
       <span class="badge bg-warning text-dark fs-6" id="countBadge">0/10</span>
     </div>
-
     <div class="card-body">
       <div class="input-group mb-3">
         <input type="text" id="nome" class="form-control" placeholder="Digite seu Nick no CS2..." onkeypress="if(event.key==='Enter') entrar()">
         <button class="btn btn-warning fw-bold" onclick="entrar()"><i class="bi bi-plus-circle"></i> Entrar</button>
       </div>
-
-      <h6 class="text-secondary mt-3">Jogadores na Sala:</h6>
-      <ul id="listaLobby" class="list-group border rounded border-secondary mb-3">
-        <!-- Jogadores entram aqui -->
-      </ul>
-
+      <ul id="listaLobby" class="list-group border rounded border-secondary mb-3"></ul>
       <div class="text-end">
         <button class="btn btn-outline-danger btn-sm" onclick="limparLobby()"><i class="bi bi-trash"></i> Resetar Lobby</button>
       </div>
@@ -44,7 +36,7 @@
   </div>
 
   <!-- FASE 2: VOTAÇÃO -->
-  <div id="faseVotacao" class="card border-secondary bg-body-tertiary shadow" style="display: none;">
+  <div id="faseVotacao" class="card border-secondary bg-body-tertiary shadow mx-auto" style="max-width: 800px; display: none;">
     <div class="card-header border-secondary">
       <h5 class="mb-0"><i class="bi bi-star-fill text-warning"></i> Fase de Votação</h5>
     </div>
@@ -56,11 +48,10 @@
 
       <div id="painelVotacao"></div>
 
-      <!-- STATUS DA VOTAÇÃO GERAL -->
       <div id="boxStatusVotacao" class="text-center mt-4 p-3 bg-dark rounded border border-secondary" style="display: none;">
         <p class="mb-2">Votações concluídas no lobby: <strong id="contadorVotosConcluidos" class="text-info">0/10</strong></p>
         <button id="btnConfirmarEGerar" class="btn btn-success w-100 fw-bold py-2" onclick="irParaTimes()" disabled>
-          <i class="bi bi-lock-fill"></i> Aguardando todos os 10 jogadores votarem...
+          <i class="bi bi-lock-fill"></i> Aguardando todos os jogadores votarem...
         </button>
       </div>
 
@@ -70,14 +61,15 @@
     </div>
   </div>
 
-  <!-- FASE 3: TIMES GERADOS -->
+  <!-- FASE 3: TIMES E MATRIZ DE VOTOS -->
   <div id="faseFormacao" class="card border-secondary bg-body-tertiary shadow" style="display: none;">
     <div class="card-header border-secondary text-center">
       <h4 class="mb-0"><i class="bi bi-trophy-fill text-warning"></i> Confronto Definido</h4>
     </div>
     <div class="card-body">
-      <div class="row g-3">
-        <!-- TIME CT -->
+
+      <!-- CONFRONTOS -->
+      <div class="row g-3 mb-4">
         <div class="col-md-6">
           <div class="card border-info bg-dark">
             <div class="card-header bg-info text-dark fw-bold text-center">
@@ -86,8 +78,6 @@
             <ul id="timeCT" class="list-group list-group-flush"></ul>
           </div>
         </div>
-
-        <!-- TIME TR -->
         <div class="col-md-6">
           <div class="card border-warning bg-dark">
             <div class="card-header bg-warning text-dark fw-bold text-center">
@@ -98,21 +88,43 @@
         </div>
       </div>
 
-      <div class="text-center mt-4">
+      <div class="text-center mb-4">
         <button class="btn btn-primary me-2" onclick="copiarParaDiscord()"><i class="bi bi-discord"></i> Copiar para Discord</button>
         <button class="btn btn-outline-light" onclick="limparLobby()"><i class="bi bi-arrow-clockwise"></i> Nova Partida</button>
       </div>
+
+      <!-- MATRIZ GRADE DE VOTAÇÃO -->
+      <div class="card border-secondary bg-dark text-light">
+        <div class="card-header border-secondary">
+          <h5 class="mb-0 text-warning"><i class="bi bi-grid-3x3-gap-fill me-2"></i> Matriz Cruzada de Votação</h5>
+          <small class="text-secondary">As linhas representam quem votou e as colunas quem recebeu o voto.</small>
+        </div>
+        <div class="card-body p-0 table-responsive">
+          <table class="table table-dark table-bordered table-striped text-center align-middle mb-0" style="font-size: 0.9rem;">
+            <thead>
+            <tr id="cabecalhoMatriz">
+              <th class="bg-secondary text-start text-white" style="width: 140px;">Votante \ Alvo</th>
+              <!-- Nomes dos Alvos inseridos via JS -->
+            </tr>
+            </thead>
+            <tbody id="corpoMatriz">
+            <!-- Células geradas via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   </div>
 
 </div>
 
-<!-- LÓGICA JAVASCRIPT INTEGRADA -->
 <script>
   let todosJogadores = [];
-  let ultimaPartida = null;
-  let meusVotosLocais = {};
+  let meustVotosLocais = {};
+  let matrizVotosServidor = {};
   let intervalVotos = null;
+  let ultimaPartida = null;
 
   async function carregar() {
     try {
@@ -133,7 +145,7 @@
         listaLobby.innerHTML = '<li class="list-group-item text-secondary text-center">Nenhum jogador na sala ainda.</li>';
       } else {
         todosJogadores.forEach(j => {
-          listaLobby.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary d-flex justify-content-between align-items-center"><span><i class="bi bi-person-fill text-warning me-2"></i>${j.nome}</span></li>`;
+          listaLobby.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary"><i class="bi bi-person-fill text-warning me-2"></i>${j.nome}</li>`;
           selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome}</option>`;
         });
       }
@@ -162,7 +174,7 @@
         pararChecagemVotos();
       }
     } catch (e) {
-      console.error("Erro ao carregar dados do lobby:", e);
+      console.error("Erro no carregamento:", e);
     }
   }
 
@@ -172,10 +184,7 @@
     if (!nome) return alert('Digite seu nick!');
 
     const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.text();
-      return alert(err);
-    }
+    if (!res.ok) return alert(await res.text());
     nomeInput.value = '';
     carregar();
   }
@@ -187,7 +196,7 @@
     painel.innerHTML = '';
 
     if (!meuNick) {
-      painel.innerHTML = '<p class="text-secondary text-center my-4"><i class="bi bi-info-circle me-1"></i> Selecione seu nick acima para liberar os cards de votação.</p>';
+      painel.innerHTML = '<p class="text-secondary text-center my-4"><i class="bi bi-info-circle me-1"></i> Selecione seu nick acima para liberar as opções de voto.</p>';
       boxStatus.style.display = 'none';
       return;
     }
@@ -197,7 +206,7 @@
 
     let htmlForm = '<div class="row g-3">';
     outros.forEach(j => {
-      const votoAtual = meusVotosLocais[j.nome];
+      const votoAtual = meustVotosLocais[j.nome];
       const jaVotou = votoAtual !== undefined;
 
       htmlForm += `
@@ -205,14 +214,14 @@
           <div class="card border-secondary bg-dark text-light p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <strong class="fs-5">${j.nome}</strong>
-              ${jaVotou ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> Votado</span>' : '<span class="badge bg-warning text-dark">Pendente</span>'}
+              ${jaVotou ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="badge bg-warning text-dark">Pendente</span>'}
             </div>
             <div class="btn-group w-100" role="group">
-              <button class="btn ${votoAtual === 1.0 ? 'btn-primary' : 'btn-outline-primary'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 1.0)">Tier 1</button>
-              <button class="btn ${votoAtual === 2.0 ? 'btn-info' : 'btn-outline-info'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 2.0)">Tier 2</button>
-              <button class="btn ${votoAtual === 3.0 ? 'btn-success' : 'btn-outline-success'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 3.0)">Tier 3</button>
-              <button class="btn ${votoAtual === 4.0 ? 'btn-warning' : 'btn-outline-warning'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 4.0)">Tier 4</button>
-              <button class="btn ${votoAtual === 5.0 ? 'btn-danger' : 'btn-outline-danger'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 5.0)">Tier 5</button>
+              <button class="btn ${votoAtual === 1.0 ? 'btn-primary' : 'btn-outline-primary'} btn-sm" onclick="selecionarTier('${j.nome}', 1.0)">T1</button>
+              <button class="btn ${votoAtual === 2.0 ? 'btn-info' : 'btn-outline-info'} btn-sm" onclick="selecionarTier('${j.nome}', 2.0)">T2</button>
+              <button class="btn ${votoAtual === 3.0 ? 'btn-success' : 'btn-outline-success'} btn-sm" onclick="selecionarTier('${j.nome}', 3.0)">T3</button>
+              <button class="btn ${votoAtual === 4.0 ? 'btn-warning' : 'btn-outline-warning'} btn-sm" onclick="selecionarTier('${j.nome}', 4.0)">T4</button>
+              <button class="btn ${votoAtual === 5.0 ? 'btn-danger' : 'btn-outline-danger'} btn-sm" onclick="selecionarTier('${j.nome}', 5.0)">T5</button>
             </div>
           </div>
         </div>
@@ -221,12 +230,12 @@
     htmlForm += '</div>';
 
     const totalOutros = outros.length;
-    const totalVotadosLocal = Object.keys(meusVotosLocais).length;
+    const totalVotadosLocal = Object.keys(meustVotosLocais).length;
 
     htmlForm += `
       <div class="mt-3">
         <button class="btn btn-warning w-100 fw-bold" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled' : ''}>
-          <i class="bi bi-floppy-fill"></i> Confirmar Meus Votos (${totalVotadosLocal}/${totalOutros})
+          <i class="bi bi-floppy-fill"></i> Salvar Votos (${totalVotadosLocal}/${totalOutros})
         </button>
       </div>
     `;
@@ -235,25 +244,17 @@
   }
 
   function selecionarTier(alvo, tier) {
-    meusVotosLocais[alvo] = tier;
+    meustVotosLocais[alvo] = tier;
     renderizarVotacao();
   }
 
   async function enviarMeusVotos() {
     const meuNick = document.getElementById('meuUsuario').value;
-    const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
-
-    if (Object.keys(meusVotosLocais).length < outros.length) {
-      return alert("Vote no Tier de todos os jogadores antes de salvar!");
+    for (const alvo in meustVotosLocais) {
+      await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[alvo]}`, { method: 'POST' });
     }
-
-    for (const alvo in meusVotosLocais) {
-      const tier = meusVotosLocais[alvo];
-      await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
-    }
-
-    alert('🎉 Seus votos foram salvos no servidor!');
-    meusVotosLocais = {};
+    alert('Votos gravados!');
+    meustVotosLocais = {};
     renderizarVotacao();
     atualizarStatusVotacaoGeral();
   }
@@ -273,25 +274,19 @@
   }
 
   async function atualizarStatusVotacaoGeral() {
-    try {
-      const res = await fetch('/api/votos-concluidos-count');
-      if (!res.ok) return;
-      const count = await res.json();
+    const res = await fetch('/api/votos-concluidos-count');
+    if (!res.ok) return;
+    const count = await res.json();
 
-      document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
-      const btn = document.getElementById('btnConfirmarEGerar');
+    document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
+    const btn = document.getElementById('btnConfirmarEGerar');
 
-      if (count >= 10) {
-        btn.disabled = false;
-        btn.classList.remove('btn-secondary');
-        btn.classList.add('btn-success');
-        btn.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Todos votaram! Gerar Equipes Agora';
-      } else {
-        btn.disabled = true;
-        btn.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos os jogadores votarem (${count}/10)...`;
-      }
-    } catch (e) {
-      console.error(e);
+    if (count >= 10) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Gerar Equipes Agora';
+    } else {
+      btn.disabled = true;
+      btn.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos votarem (${count}/10)...`;
     }
   }
 
@@ -302,10 +297,8 @@
 
   async function balancear() {
     const res = await fetch('/api/balancear');
-    if (!res.ok) {
-      const err = await res.text();
-      return alert('Aviso: ' + err);
-    }
+    if (!res.ok) return alert(await res.text());
+
     const times = await res.json();
     ultimaPartida = times;
 
@@ -314,33 +307,72 @@
     ctList.innerHTML = '';
     trList.innerHTML = '';
 
-    times[0].jogadores.forEach(j => ctList.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary"><i class="bi bi-person-fill text-info me-2"></i>${j.nome}</li>`);
-    times[1].jogadores.forEach(j => trList.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary"><i class="bi bi-person-fill text-warning me-2"></i>${j.nome}</li>`);
+    times[0].jogadores.forEach(j => ctList.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary">${j.nome}</li>`);
+    times[1].jogadores.forEach(j => trList.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary">${j.nome}</li>`);
+
+    const resVotos = await fetch('/api/votos-detalhados');
+    if (resVotos.ok) {
+      matrizVotosServidor = await resVotos.json();
+      montarMatrizTabela();
+    }
+  }
+
+  function renderTierBadge(tier) {
+    if (!tier) return '<span class="text-muted">-</span>';
+    const num = Number(tier);
+    if (num === 1) return '<span class="badge bg-primary">T1</span>';
+    if (num === 2) return '<span class="badge bg-info text-dark">T2</span>';
+    if (num === 3) return '<span class="badge bg-success">T3</span>';
+    if (num === 4) return '<span class="badge bg-warning text-dark">T4</span>';
+    if (num === 5) return '<span class="badge bg-danger">T5</span>';
+    return `<span class="badge bg-secondary">T${num}</span>`;
+  }
+
+  function montarMatrizTabela() {
+    const cabecalho = document.getElementById('cabecalhoMatriz');
+    const corpo = document.getElementById('corpoMatriz');
+
+    cabecalho.innerHTML = '<th class="bg-secondary text-start text-white">Votante \\ Alvo</th>';
+    corpo.innerHTML = '';
+
+    // Colunas (Alvos)
+    todosJogadores.forEach(j => {
+      cabecalho.innerHTML += `<th class="text-center text-warning fw-bold">${j.nome}</th>`;
+    });
+
+    // Linhas (Votantes)
+    todosJogadores.forEach(votante => {
+      let tr = `<tr><td class="fw-bold text-start text-info bg-dark-subtle">${votante.nome}</td>`;
+      todosJogadores.forEach(alvo => {
+        if (votante.nome.toLowerCase() === alvo.nome.toLowerCase()) {
+          tr += `<td class="table-active text-secondary fw-bold">X</td>`;
+        } else {
+          const mapaVotante = matrizVotosServidor[votante.nome] || matrizVotosServidor[votante.nome.toLowerCase()];
+          const valorTier = mapaVotante ? mapaVotante[alvo.nome] : null;
+          tr += `<td>${renderTierBadge(valorTier)}</td>`;
+        }
+      });
+      tr += '</tr>';
+      corpo.innerHTML += tr;
+    });
   }
 
   function copiarParaDiscord() {
     if (!ultimaPartida) return;
-
-    const ct = ultimaPartida[0];
-    const tr = ultimaPartida[1];
-
     let texto = `⚔️ **PARTIDA CS2 GERADA** ⚔️\n\n`;
-    texto += `🛡️ **${ct.nome.toUpperCase()}**\n`;
-    if (ct && ct.jogadores) ct.jogadores.forEach(j => texto += `• ${j.nome}\n`);
+    texto += `🛡️ **${ultimaPartida[0].nome.toUpperCase()}**\n`;
+    ultimaPartida[0].jogadores.forEach(j => texto += `• ${j.nome}\n`);
+    texto += `\n💣 **${ultimaPartida[1].nome.toUpperCase()}**\n`;
+    ultimaPartida[1].jogadores.forEach(j => texto += `• ${j.nome}\n`);
 
-    texto += `\n💣 **${tr.nome.toUpperCase()}**\n`;
-    if (tr && tr.jogadores) tr.jogadores.forEach(j => texto += `• ${j.nome}\n`);
-
-    navigator.clipboard.writeText(texto).then(() => {
-      alert("Escalação copiada para a área de transferência!");
-    });
+    navigator.clipboard.writeText(texto).then(() => alert("Copiado para o Discord!"));
   }
 
   async function limparLobby() {
-    if (!confirm("Tem certeza que deseja resetar a sala?")) return;
-
+    if (!confirm("Resetar sala?")) return;
     await fetch('/api/resetar', { method: 'POST' });
-    meusVotosLocais = {};
+    meustVotosLocais = {};
+    matrizVotosServidor = {};
     ultimaPartida = null;
     pararChecagemVotos();
     carregar();
@@ -348,9 +380,5 @@
 
   carregar();
 </script>
-
-<!-- Bootstrap JS Bundle -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
 </body>
 </html>

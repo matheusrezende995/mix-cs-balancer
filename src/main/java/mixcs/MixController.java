@@ -4,7 +4,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -12,6 +14,8 @@ public class MixController {
 
     private final List<Jogador> lobby = new ArrayList<>();
     private final BalanceadorService balanceadorService = new BalanceadorService();
+    // Estrutura: Votante -> (Alvo -> Tier)
+    private final Map<String, Map<String, Double>> matrizVotos = new HashMap<>();
 
     @GetMapping("/jogadores")
     public List<Jogador> getJogadores() {
@@ -38,9 +42,9 @@ public class MixController {
     }
 
     @PostMapping("/votar")
-    public ResponseEntity<String> votarTier(@RequestParam String alvo, @RequestParam double tier) {
+    public ResponseEntity<String> votarTier(@RequestParam String autor, @RequestParam String alvo, @RequestParam double tier) {
         if (lobby.size() < 10) {
-            return ResponseEntity.badRequest().body("A votação só é liberada quando o lobby tiver 10 jogadores!");
+            return ResponseEntity.badRequest().body("A votação só é liberada com 10 jogadores!");
         }
 
         Jogador jogadorAlvo = lobby.stream()
@@ -53,7 +57,11 @@ public class MixController {
         }
 
         jogadorAlvo.adicionarVoto(tier);
-        return ResponseEntity.ok("Voto registrado para " + alvo);
+
+        // Salva na matriz: autor -> (alvo -> tier)
+        matrizVotos.computeIfAbsent(autor, k -> new HashMap<>()).put(alvo, tier);
+
+        return ResponseEntity.ok("Voto registrado!");
     }
 
     @GetMapping("/votos-concluidos-count")
@@ -64,45 +72,21 @@ public class MixController {
         return ResponseEntity.ok(count);
     }
 
+    @GetMapping("/votos-detalhados")
+    public ResponseEntity<Map<String, Map<String, Double>>> getVotosDetalhados() {
+        return ResponseEntity.ok(matrizVotos);
+    }
+
     @GetMapping("/balancear")
     public ResponseEntity<?> balancearPartida() {
         if (lobby.size() < 10) {
-            return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby para balancear!");
+            return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby!");
         }
 
         try {
             List<Time> times = balanceadorService.balancearTimes(lobby);
             return ResponseEntity.ok(times);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @GetMapping("/draft/estado")
-    public ResponseEntity<?> getEstadoDraft() {
-        return ResponseEntity.ok(balanceadorService.getDraftAtual());
-    }
-
-    @PostMapping("/draft/iniciar")
-    public ResponseEntity<?> iniciarDraft() {
-        if (lobby.size() < 10) {
-            return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby para iniciar o Draft!");
-        }
-
-        try {
-            DraftState state = balanceadorService.iniciarDraft(lobby);
-            return ResponseEntity.ok(state);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
-
-    @PostMapping("/draft/pick")
-    public ResponseEntity<?> pickJogador(@RequestParam String capitao, @RequestParam String escolhido) {
-        try {
-            DraftState state = balanceadorService.pickJogador(capitao, escolhido);
-            return ResponseEntity.ok(state);
-        } catch (IllegalArgumentException | IllegalStateException e) {
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
@@ -110,6 +94,7 @@ public class MixController {
     @PostMapping("/resetar")
     public ResponseEntity<String> resetarLobby() {
         lobby.clear();
+        matrizVotos.clear();
         return ResponseEntity.ok("Lobby limpo com sucesso!");
     }
 }
