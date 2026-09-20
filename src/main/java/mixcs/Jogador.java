@@ -1,6 +1,8 @@
 package mixcs;
 
 import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "jogadores")
@@ -17,6 +19,9 @@ public class Jogador {
     private boolean votou = false;
 
     private double habilidadeMedia = 3.0;
+
+    @Transient
+    private List<Voto> votosRecebidos = new ArrayList<>();
 
     public Jogador() {}
 
@@ -42,7 +47,6 @@ public class Jogador {
         this.nome = nome;
     }
 
-    // Método de compatibilidade para código antigo que chama getNickname
     public String getNickname() {
         return nome;
     }
@@ -65,5 +69,13 @@ public class Jogador {
 
     public void setHabilidadeMedia(double habilidadeMedia) {
         this.habilidadeMedia = habilidadeMedia;
+    }
+
+    public List<Voto> getVotosRecebidos() {
+        return votosRecebidos;
+    }
+
+    public void setVotosRecebidos(List<Voto> votosRecebidos) {
+        this.votosRecebidos = votosRecebidos;
     }
 }
