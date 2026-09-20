@@ -126,4 +126,28 @@ public class MixController {
         jogadorRepository.deleteAll();
         return ResponseEntity.ok("Lobby e votos limpos no banco de dados!");
     }
+    @GetMapping("/status-votacao")
+    public ResponseEntity<?> obterStatusVotacao() {
+        List<Jogador> todos = jogadorRepository.findAll();
+
+        // Filtra quem já registrou votos
+        List<String> votaram = todos.stream()
+                .filter(j -> j.getVotosRecebidos() != null && !j.getVotosRecebidos().isEmpty())
+                .map(Jogador::getNome)
+                .toList();
+
+        // Filtra quem ainda não votou
+        List<String> faltam = todos.stream()
+                .filter(j -> j.getVotosRecebidos() == null || j.getVotosRecebidos().isEmpty())
+                .map(Jogador::getNome)
+                .toList();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("votaram", votaram);
+        response.put("faltam", faltam);
+        response.put("totalVotaram", votaram.size());
+        response.put("totalJogadores", todos.size());
+
+        return ResponseEntity.ok(response);
+    }
 }
