@@ -1,322 +1,113 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="dark">
 <head>
   <meta charset="UTF-8">
-  <title>MIX CS2 - Votação e Balanceamento</title>
-  <link rel="stylesheet" href="/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MIX CS2 - Balanceador de Partidas</title>
+  <!-- Bootstrap 5 CDN -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
-<body>
+<body class="bg-dark text-light min-vh-100 py-4">
 
-<div class="card">
-  <h2>Lobby CS2</h2>
+<div class="container" style="max-width: 800px;">
+
+  <!-- CABEÇALHO -->
+  <div class="text-center mb-4">
+    <h1 class="display-5 fw-bold text-warning"><i class="bi bi-crosshair"></i> MIX CS2</h1>
+    <p class="text-secondary">Votação de Tiers e Balanceamento Automático</p>
+  </div>
 
   <!-- FASE 1: ENTRADA E LOBBY -->
-  <div id="faseLobby" class="lobby-box">
-    <div class="lobby-header">
-      <span class="lobby-title">Aguardando Jogadores</span>
-      <span class="lobby-badge" id="countBadge">0/10</span>
+  <div id="faseLobby" class="card border-secondary bg-body-tertiary shadow">
+    <div class="card-header d-flex justify-content-between align-items-center border-secondary">
+      <h5 class="mb-0"><i class="bi bi-people-fill"></i> Sala de Espera</h5>
+      <span class="badge bg-warning text-dark fs-6" id="countBadge">0/10</span>
     </div>
 
-    <div class="input-group">
-      <input type="text" id="nome" placeholder="Digite seu Nick no CS">
-      <button class="btn-entrar" onclick="entrar()">Entrar</button>
-    </div>
+    <div class="card-body">
+      <div class="input-group mb-3">
+        <input type="text" id="nome" class="form-control" placeholder="Digite seu Nick no CS2...">
+        <button class="btn btn-warning fw-bold" onclick="entrar()"><i class="bi bi-plus-circle"></i> Entrar</button>
+      </div>
 
-    <div class="lobby-confirmados">
-      <p style="margin: 5px 0; font-size: 13px; color: #8b949e;">Jogadores na sala:</p>
-      <ul id="listaLobby"></ul>
-    </div>
+      <h6 class="text-secondary mt-3">Jogadores na Sala:</h6>
+      <ul id="listaLobby" class="list-group list-group-flush border rounded border-secondary">
+        <!-- Jogadores entram aqui -->
+      </ul>
 
-    <div style="text-align: right; margin-top: 10px;">
-      <button class="btn-reset-small" onclick="limparLobby()">🗑️ Limpar Lobby</button>
+      <div class="text-end mt-3">
+        <button class="btn btn-outline-danger btn-sm" onclick="limparLobby()"><i class="bi bi-trash"></i> Resetar Lobby</button>
+      </div>
     </div>
   </div>
 
   <!-- FASE 2: VOTAÇÃO -->
-  <div id="faseVotacao" class="section" style="display: none;">
-    <h3>Área de Votação</h3>
-    <label for="meuUsuario">Selecione QUEM é você:</label>
-    <select id="meuUsuario" onchange="renderizarVotacao()">
-      <option value="">-- Selecione seu Nick --</option>
-    </select>
-
-    <div id="painelVotacao" style="margin-top: 15px;"></div>
-
-    <!-- CONTADOR GLOBAL DA SALA E BOTÃO BLOQUEADO -->
-    <div id="boxStatusVotacao" style="margin-top: 20px; text-align: center; display: none;">
-      <p style="color: #c9d1d9; font-size: 14px; margin-bottom: 8px;">
-        Votações concluídas no lobby: <strong id="contadorVotosConcluidos" style="color: #58a6ff;">0/10</strong>
-      </p>
-      <button id="btnConfirmarEGerar" class="btn-votar" onclick="irParaTimes()" disabled style="opacity: 0.5; cursor: not-allowed; width: 100%;">
-        🔒 Aguardando todos os 10 jogadores votarem...
-      </button>
+  <div id="faseVotacao" class="card border-secondary bg-body-tertiary shadow" style="display: none;">
+    <div class="card-header border-secondary">
+      <h5 class="mb-0"><i class="bi bi-star-fill text-warning"></i> Fase de Votação</h5>
     </div>
+    <div class="card-body">
+      <label for="meuUsuario" class="form-label">Quem é você?</label>
+      <select id="meuUsuario" class="form-select mb-3" onchange="renderizarVotacao()">
+        <option value="">-- Selecione seu Nick --</option>
+      </select>
 
-    <div style="text-align: right; margin-top: 15px;">
-      <button class="btn-reset-small" onclick="limparLobby()">🗑️ Resetar Lobby</button>
-    </div>
-  </div>
+      <div id="painelVotacao"></div>
 
-  <!-- FASE 3: FORMAÇÃO RÁPIDA DE TIMES -->
-  <div id="faseFormacao" class="section" style="display: none;">
-    <h3>Times Gerados</h3>
-
-    <!-- RESULTADO DOS TIMES -->
-    <div class="times-container" id="resultado">
-      <div class="time-box">
-        <h4 class="ct-title">Counter-Terrorists</h4>
-        <ul id="timeCT"></ul>
-      </div>
-      <div class="time-box">
-        <h4 class="tr-title">Terrorists</h4>
-        <ul id="timeTR"></ul>
-      </div>
-    </div>
-
-    <!-- BOTÃO DISCORD E NOVO JOGO -->
-    <div id="discord-container" style="margin-top: 15px;">
-      <button class="btn-discord" onclick="copiarParaDiscord()">📋 Copiar para o Discord</button>
-      <div style="margin-top: 10px;">
-        <button class="btn-reset-small" onclick="limparLobby()">🔄 Reiniciar Lobby para Nova Partida</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-  let todosJogadores = [];
-  let ultimaPartida = null;
-  let meusVotosLocais = {};
-  let intervalVotos = null;
-
-  async function carregar() {
-    const res = await fetch('/api/jogadores');
-    todosJogadores = await res.json();
-
-    const total = todosJogadores.length;
-    document.getElementById('countBadge').innerText = `${total}/10`;
-
-    const listaLobby = document.getElementById('listaLobby');
-    listaLobby.innerHTML = '';
-
-    const selectUsuario = document.getElementById('meuUsuario');
-    const usuarioSelecionado = selectUsuario.value;
-    selectUsuario.innerHTML = '<option value="">-- Selecione seu Nick --</option>';
-
-    todosJogadores.forEach(j => {
-      listaLobby.innerHTML += `<li class="player-tag"><span>${j.nome}</span></li>`;
-      selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome}</option>`;
-    });
-
-    selectUsuario.value = usuarioSelecionado;
-
-    const faseLobby = document.getElementById('faseLobby');
-    const faseVotacao = document.getElementById('faseVotacao');
-    const faseFormacao = document.getElementById('faseFormacao');
-
-    if (total < 10) {
-      faseLobby.style.display = 'block';
-      faseVotacao.style.display = 'none';
-      faseFormacao.style.display = 'none';
-      pararChecagemVotos();
-    } else if (total === 10 && !ultimaPartida) {
-      faseLobby.style.display = 'none';
-      faseVotacao.style.display = 'block';
-      faseFormacao.style.display = 'none';
-      renderizarVotacao();
-      iniciarChecagemVotos();
-    } else {
-      faseLobby.style.display = 'none';
-      faseVotacao.style.display = 'none';
-      faseFormacao.style.display = 'block';
-      pararChecagemVotos();
-    }
-  }
-
-  async function entrar() {
-    const nomeInput = document.getElementById('nome');
-    const nome = nomeInput.value.trim();
-    if (!nome) return alert('Digite seu nick!');
-
-    const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
-    if (!res.ok) {
-      const err = await res.text();
-      return alert(err);
-    }
-    nomeInput.value = '';
-    carregar();
-  }
-
-  function renderizarVotacao() {
-    const meuNick = document.getElementById('meuUsuario').value;
-    const painel = document.getElementById('painelVotacao');
-    const boxStatus = document.getElementById('boxStatusVotacao');
-    painel.innerHTML = '';
-
-    if (!meuNick) {
-      painel.innerHTML = '<p style="color: #8f98a0; text-align: center;">Selecione seu nick acima para votar nos jogadores.</p>';
-      boxStatus.style.display = 'none';
-      return;
-    }
-
-    boxStatus.style.display = 'block';
-    const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
-
-    let htmlForm = '<div class="cards-voto-grid">';
-    outros.forEach(j => {
-      const votoAtual = meusVotosLocais[j.nome];
-      const jaVotou = votoAtual !== undefined;
-
-      htmlForm += `
-        <div class="card-voto-item ${jaVotou ? 'voto-confirmado' : ''}">
-          <div class="voto-header">
-            <span class="voto-nome">${j.nome}</span>
-            ${jaVotou ? '<span class="badge-voted">✓ Votado</span>' : '<span class="badge-pending">Pendente</span>'}
-          </div>
-          <div class="tier-buttons">
-            <button class="btn-tier t1 ${votoAtual === 1.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 1.0)">T1 <small>(GC A+)</small></button>
-            <button class="btn-tier t2 ${votoAtual === 2.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 2.5)">T2 <small>(GC A)</small></button>
-            <button class="btn-tier t3 ${votoAtual === 3.5 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 3.5)">T3 <small>(GC B)</small></button>
-            <button class="btn-tier t4 ${votoAtual === 5.0 ? 'active' : ''}" onclick="selecionarTier('${j.nome}', 5.0)">T4 <small>(GC C)</small></button>
-          </div>
-        </div>
-      `;
-    });
-    htmlForm += '</div>';
-
-    const totalOutros = outros.length;
-    const totalVotadosLocal = Object.keys(meusVotosLocais).length;
-
-    htmlForm += `
-      <div style="margin-top: 15px;">
-        <button class="btn-votar" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : ''}>
-          💾 Confirmar Meus Votos (${totalVotadosLocal}/${totalOutros})
+      <!-- STATUS DA VOTAÇÃO GERAL -->
+      <div id="boxStatusVotacao" class="text-center mt-4 p-3 bg-dark rounded border border-secondary" style="display: none;">
+        <p class="mb-2">Votações concluídas no lobby: <strong id="contadorVotosConcluidos" class="text-info">0/10</strong></p>
+        <button id="btnConfirmarEGerar" class="btn btn-success w-100 fw-bold py-2" onclick="irParaTimes()" disabled>
+          <i class="bi bi-lock-fill"></i> Aguardando todos os 10 jogadores votarem...
         </button>
       </div>
-    `;
 
-    painel.innerHTML = htmlForm;
-  }
+      <div class="text-end mt-3">
+        <button class="btn btn-outline-danger btn-sm" onclick="limparLobby()"><i class="bi bi-trash"></i> Resetar Lobby</button>
+      </div>
+    </div>
+  </div>
 
-  function selecionarTier(alvo, tier) {
-    if (meusVotosLocais[alvo] !== undefined) {
-      alert(`Você já registrou o voto para ${alvo}!`);
-      return;
-    }
-    meusVotosLocais[alvo] = tier;
-    renderizarVotacao();
-  }
+  <!-- FASE 3: TIMES GERADOS -->
+  <div id="faseFormacao" class="card border-secondary bg-body-tertiary shadow" style="display: none;">
+    <div class="card-header border-secondary text-center">
+      <h4 class="mb-0"><i class="bi bi-trophy-fill text-warning"></i> Confronto Definido</h4>
+    </div>
+    <div class="card-body">
+      <div class="row g-3">
+        <!-- TIME CT -->
+        <div class="col-md-6">
+          <div class="card border-info bg-dark">
+            <div class="card-header bg-info text-dark fw-bold text-center">
+              <i class="bi bi-shield-fill"></i> Counter-Terrorists
+            </div>
+            <ul id="timeCT" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
 
-  async function enviarMeusVotos() {
-    const meuNick = document.getElementById('meuUsuario').value;
-    const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
+        <!-- TIME TR -->
+        <div class="col-md-6">
+          <div class="card border-warning bg-dark">
+            <div class="card-header bg-warning text-dark fw-bold text-center">
+              <i class="bi bi-fire"></i> Terrorists
+            </div>
+            <ul id="timeTR" class="list-group list-group-flush"></ul>
+          </div>
+        </div>
+      </div>
 
-    if (Object.keys(meusVotosLocais).length < outros.length) {
-      return alert("Vote no Tier de todos os jogadores antes de salvar!");
-    }
+      <div class="text-center mt-4">
+        <button class="btn btn-primary me-2" onclick="copiarParaDiscord()"><i class="bi bi-discord"></i> Copiar para Discord</button>
+        <button class="btn btn-outline-light" onclick="limparLobby()"><i class="bi bi-arrow-clockwise"></i> Nova Partida</button>
+      </div>
+    </div>
+  </div>
 
-    for (const alvo in meusVotosLocais) {
-      const tier = meusVotosLocais[alvo];
-      await fetch(`/api/votar?alvo=${encodeURIComponent(alvo)}&tier=${tier}`, { method: 'POST' });
-    }
+</div>
 
-    alert('🎉 Seus votos foram salvos no servidor!');
-    meusVotosLocais = {};
-    renderizarVotacao();
-    atualizarStatusVotacaoGeral();
-  }
+<!-- Bootstrap JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-  function iniciarChecagemVotos() {
-    if (!intervalVotos) {
-      atualizarStatusVotacaoGeral();
-      intervalVotos = setInterval(atualizarStatusVotacaoGeral, 2000);
-    }
-  }
-
-  function pararChecagemVotos() {
-    if (intervalVotos) {
-      clearInterval(intervalVotos);
-      intervalVotos = null;
-    }
-  }
-
-  async function atualizarStatusVotacaoGeral() {
-    try {
-      const res = await fetch('/api/votos-concluidos-count');
-      if (!res.ok) return;
-      const count = await res.json();
-
-      document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
-      const btn = document.getElementById('btnConfirmarEGerar');
-
-      if (count >= 10) {
-        btn.disabled = false;
-        btn.style.opacity = '1';
-        btn.style.cursor = 'pointer';
-        btn.innerHTML = '🚀 Todos votaram! Gerar Equipes Agora';
-      } else {
-        btn.disabled = true;
-        btn.style.opacity = '0.5';
-        btn.style.cursor = 'not-allowed';
-        btn.innerHTML = `🔒 Aguardando todos os jogadores votarem (${count}/10)...`;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  async function irParaTimes() {
-    await balancear();
-    carregar();
-  }
-
-  async function balancear() {
-    const res = await fetch('/api/balancear');
-    if (!res.ok) {
-      const err = await res.text();
-      return alert('Aviso: ' + err);
-    }
-    const times = await res.json();
-    ultimaPartida = times;
-
-    const ctList = document.getElementById('timeCT');
-    const trList = document.getElementById('timeTR');
-    ctList.innerHTML = '';
-    trList.innerHTML = '';
-
-    times[0].jogadores.forEach(j => ctList.innerHTML += `<li>${j.nome}</li>`);
-    times[1].jogadores.forEach(j => trList.innerHTML += `<li>${j.nome}</li>`);
-  }
-
-  function copiarParaDiscord() {
-    if (!ultimaPartida) return;
-
-    const ct = ultimaPartida[0];
-    const tr = ultimaPartida[1];
-
-    let texto = `⚔️ **PARTIDA CS2 GERADA** ⚔️\n\n`;
-    texto += `🛡️ **${ct.nome.toUpperCase()}**\n`;
-    if (ct && ct.jogadores) ct.jogadores.forEach(j => texto += `• ${j.nome}\n`);
-
-    texto += `\n💣 **${tr.nome.toUpperCase()}**\n`;
-    if (tr && tr.jogadores) tr.jogadores.forEach(j => texto += `• ${j.nome}\n`);
-
-    navigator.clipboard.writeText(texto).then(() => {
-      alert("Escalação copiada para a área de transferência!");
-    });
-  }
-
-  async function limparLobby() {
-    if (!confirm("Tem certeza que deseja resetar a sala?")) return;
-
-    await fetch('/api/resetar', { method: 'POST' });
-    meusVotosLocais = {};
-    ultimaPartida = null;
-    pararChecagemVotos();
-    carregar();
-  }
-
-  carregar();
-</script>
 </body>
 </html>
