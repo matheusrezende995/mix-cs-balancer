@@ -1,67 +1,61 @@
 # 🎯 Mix CS Balancer
 
-> Aplicação web desenvolvida com **Spring Boot** para gerenciar lobbies de partidas customizadas (Mix / PCW de CS:GO / CS2), automatizar votações de nível (*tier*) entre amigos e realizar o **balanceamento inteligente e justo de 2 times (5v5)**.
+> Aplicação web full-stack desenvolvida com **Spring Boot** e **WebSockets** para gerenciar lobbies de partidas customizadas (Mix / PCW de CS2), automatizar o ecossistema de jogadores em tempo real e realizar o **balanceamento inteligente e justo de 2 times (5v5)**.
 
 ---
 
-## 📌 Sobre o Projeto
+## 🚀 Sobre o Projeto
 
-O **Mix CS Balancer** nasceu para resolver o problema clássico das partidas entre amigos: criar times desequilibrados e perder tempo decidindo quem joga com quem. 
+O **Mix CS Balancer** nasceu para resolver o problema clássico das partidas entre amigos: criar times desequilibrados, gerenciar o lobby manualmente e perder tempo decidindo quem joga com quem. 
 
-A aplicação permite que os jogadores entrem no lobby, atribuam notas/tiers uns aos outros de forma justa e, em seguida, gera dois times perfeitamente equilibrados com base nas médias de habilidade calculadas.
+A aplicação entrega uma experiência fluida e em tempo real (via WebSockets), onde os jogadores entram no lobby, o sistema processa os dados de forma assíncrona, valida as regras de negócio de ponta a ponta e gera dois times perfeitamente equilibrados com base em algoritmos de combinação.
 
 ---
 
-## 🛠️ Tecnologias e Ferramentas
+## 🛠️ Tecnologias e Arquitetura
+
+O projeto foi construído seguindo boas práticas de mercado e padrões de arquitetura corporativa:
 
 * **Linguagem:** Java 17
-* **Framework Backend:** Spring Boot 3 (Spring Web, Spring Data JPA)
-* **Gerenciador de Dependências:** Maven (`pom.xml`)
+* **Backend:** Spring Boot 3 (Spring Web, Spring Data JPA, Spring WebSocket)
+* **Comunicação em Tempo Real:** STOMP Protocol, SockJS & WebSockets
+* **Tratamento de Erros & Padrões:** DTOs (Data Transfer Objects), `@RestControllerAdvice` (Global Exception Handler)
 * **Banco de Dados Relacional:** MySQL / MariaDB
-* **Frontend:** HTML5, CSS3, JavaScript (Fetch API / Async Web)
-* **Containerização:** Docker (`Dockerfile`)
-* **Hospedagem / Nuvem:** Render Dashboard
+* **Gerenciador de Dependências:** Maven
+* **Frontend:** HTML5, CSS3, JavaScript (Vanilla JS, SockJS Client, STOMP Client, Fetch API)
+* **Containerização:** Docker (`Dockerfile` multi-stage)
+* **Hospedagem / Deploy:** Render / Nuvem
 
 ---
 
-## 📋 Status do Desenvolvimento
+## 📋 Status do Desenvolvimento & Funcionalidades
 
 ### ✅ Concluído & Implementado
 
-- [x] **Configuração do Projeto e Build System**
-  - Definição da estrutura Spring Boot e dependências no `pom.xml`.
+- [x] **Comunicação em Tempo Real (WebSockets + STOMP)**
+  - Substituição completa de polling por *Server-Push* via WebSocket, atualizando o lobby e contadores instantaneamente para todos os clientes conectados.
+- [x] **Padronização da API e Tratamento Global de Erros**
+  - Implementação de `ErroResponseDTO` e um tratador global de exceções (`@RestControllerAdvice`), garantindo respostas JSON padronizadas e limpas para o front-end.
+- [x] **Persistência de Dados Relacional (Spring Data JPA + MySQL)**
+  - Mapeamento objeto-relacional (`@Entity`) de Jogadores e Votos, substituindo armazenamento em memória por um banco de dados relacional robusto.
 - [x] **Algoritmo de Balanceamento Inteligente**
-  - Implementação do `BalanceadorService` e lógica de combinação para equilibrar a soma/média de MMR/tier de dois times (5v5).
-- [x] **Endpoints da API REST (`MixController`)**
-  - Rotas para gerenciar entrada de jogadores, registro de votos, matriz de notas, cálculo de times e reset do lobby.
-- [x] **Interface Web (Frontend)**
-  - Criação da página intuitiva (`index.html`, `style.css`) consumindo a API via JavaScript.
-- [x] **Containerização com Docker**
-  - Criação do `Dockerfile` multi-stage para compilar e empacotar a aplicação em um container isolado.
-- [x] **Deploy Continuo na Nuvem**
-  - Integração e publicação automática no dashboard do **Render**.
-- [x] **Persistência de Dados Relacional (JPA + MySQL)**
-  - Transição da memória (`List<Jogador>`) para o **Spring Data JPA**.
-  - Mapeamento das entidades `@Entity` (`Jogador` e `Voto`).
-  - Criação dos repositórios Spring Data (`JogadorRepository` e `VotoRepository`).
-  - Configuração da conexão no `application.properties`.
+  - Implementação do `BalanceadorService` utilizando lógica combinatória para calcular e equilibrar a soma/média de tiers de dois times (5v5) com o mínimo de desvio.
+- [x] **Endpoints RESTful (`MixController`)**
+  - Rotas estruturadas para gerenciar entrada de jogadores, registro de votos, matriz de notas, cálculo de times e reset do lobby.
+- [x] **Interface Web Responsiva (Frontend)**
+  - Interface moderna consumindo a API e escutando eventos via WebSocket em tempo real.
+- [x] **Containerização e Deploy (Docker)**
+  - Configuração de `Dockerfile` otimizado para empacotar a aplicação pronta para ambientes em nuvem.
 
 ---
 
 ### 🚀 Próximas Funcionalidades (Roadmap)
 
-- [ ] **Sistema de Escolha de Mapas (Veto / Pick & Ban)**
-  - Votação interativa ou sistema de eliminação de mapas da pool ativa do CS2 (Mirage, Inferno, Nuke, Anubis, Ancient, Dust II, Vertigo).
-- [ ] **Histórico e Registro de Partidas**
-  - Tabela para salvar os confrontos realizados, placares (ex: 13x11) e data da partida.
-- [ ] **Estatísticas e KDR por Jogador**
-  - Módulo para registrar abate, mortes e assistências (K/D/A), taxa de vitória (*winrate %*) e ranking do servidor.
-- [ ] **Perfis Permanentes & Autenticação (Steam / Login)**
-  - Cadastro fixo dos amigos para manter o histórico acumulado ao longo da temporada.
-- [ ] **Integração com Discord (Bot)**
-  - Bot no Discord para notificar quando o lobby estiver cheio e mover automaticamente os jogadores para as salas de voz dos seus respectivos times (Time A / Time B).
-- [ ] **Definição de Capitães e Reroll de Times**
-  - Opção para os 2 melhores jogadores serem capitães e escolherem em formato de *Draft* ou forçar um recálculo com novos critérios.
+- [ ] **Sistema de Escolha de Mapas (Veto / Pick & Ban)** — Votação interativa para eliminação de mapas da pool do CS2.
+- [ ] **Histórico e Registro de Partidas** — Tabela para salvar confrontos realizados e placares.
+- [ ] **Estatísticas e KDR por Jogador** — Módulo de winrate e desempenho individual.
+- [ ] **Perfis Permanentes & Autenticação** — Cadastro fixo e histórico acumulado por temporada.
+- [ ] **Integração com Discord (Bot)** — Notificações automáticas e movimentação para salas de voz.
 
 ---
 
