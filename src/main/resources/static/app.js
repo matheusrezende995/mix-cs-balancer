@@ -1,0 +1,1 @@
+// A lógica principal de controle já está embutida diretamente no index.html.
