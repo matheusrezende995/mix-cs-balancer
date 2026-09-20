@@ -6,6 +6,10 @@
   <title>MIX CS2 - Balanceador de Partidas</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+  <!-- Bibliotecas do WebSocket (SockJS e STOMP) -->
+  <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </head>
 <body class="bg-dark text-light min-vh-100 py-4">
 
@@ -162,14 +166,71 @@
   let todosJogadores = [];
   let meustVotosLocais = {};
   let matrizVotosServidor = {};
-  let intervalVotos = null;
   let ultimaPartida = null;
   let modalInstance = null;
   let usuarioJaVotuNoCliente = false;
+  let stompClient = null;
 
   document.addEventListener("DOMContentLoaded", () => {
     modalInstance = new bootstrap.Modal(document.getElementById('modalAguardandoVotos'));
+    conectarWebSocket();
+    carregar();
   });
+
+  // Conexão WebSocket via STOMP / SockJS
+  function conectarWebSocket() {
+    if (stompClient && stompClient.connected) return;
+
+    const socket = new SockJS('/ws-mix');
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null; // Desativa logs no console do browser
+
+    stompClient.connect({}, function (frame) {
+      console.log('Conectado ao WebSocket com sucesso!');
+
+      stompClient.subscribe('/topic/status', function (messageOutput) {
+        const dadosStatus = JSON.parse(messageOutput.body);
+        atualizarInterfaceComDados(dadosStatus);
+        carregar(); // Atualiza o lobby / fases em tempo real
+      });
+    }, function (error) {
+      console.error('Erro na conexão WebSocket. Tentando reconectar em 5s...', error);
+      setTimeout(conectarWebSocket, 5000);
+    });
+  }
+
+  function atualizarInterfaceComDados(data) {
+    const count = data.totalVotaram;
+    document.getElementById('countBadge').innerText = `${data.totalJogadores}/10`;
+
+    document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
+    document.getElementById('qtdVotaram').innerText = data.votaram.length;
+    document.getElementById('qtdFaltam').innerText = data.faltam.length;
+
+    const listaVotaramEl = document.getElementById('listaVotaramModal');
+    const listaFaltamEl = document.getElementById('listaFaltamModal');
+
+    listaVotaramEl.innerHTML = data.votaram.length > 0 ? data.votaram.map(n => `<li><i class="bi bi-check text-success"></i> ${n}</li>`).join('') : '<li class="text-muted">Ninguém ainda</li>';
+    listaFaltamEl.innerHTML = data.faltam.length > 0 ? data.faltam.map(n => `<li><i class="bi bi-dash text-danger"></i> ${n}</li>`).join('') : '<li class="text-success">Todos votaram!</li>';
+
+    const btnGerarTela = document.getElementById('btnConfirmarEGerar');
+    const btnModalLiberar = document.getElementById('btnLiberarGeracaoModal');
+    const textoAviso = document.getElementById('textoAvisoAguarde');
+
+    if (count >= 10) {
+      btnGerarTela.disabled = false;
+      btnGerarTela.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Gerar Equipes Agora';
+
+      btnModalLiberar.style.display = 'block';
+      textoAviso.style.display = 'none';
+    } else {
+      btnGerarTela.disabled = true;
+      btnGerarTela.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos votarem (${count}/10)...`;
+
+      btnModalLiberar.style.display = 'none';
+      textoAviso.style.display = 'block';
+    }
+  }
 
   async function carregar() {
     try {
@@ -205,18 +266,15 @@
         faseLobby.style.display = 'block';
         faseVotacao.style.display = 'none';
         faseFormacao.style.display = 'none';
-        pararChecagemVotos();
       } else if (total === 10 && !ultimaPartida) {
         faseLobby.style.display = 'none';
         faseVotacao.style.display = 'block';
         faseFormacao.style.display = 'none';
         renderizarVotacao();
-        iniciarChecagemVotos();
       } else {
         faseLobby.style.display = 'none';
         faseVotacao.style.display = 'none';
         faseFormacao.style.display = 'block';
-        pararChecagemVotos();
       }
     } catch (e) {
       console.error("Erro no carregamento:", e);
@@ -276,7 +334,6 @@
 
     const totalOutros = outros.length;
     const totalVotadosLocal = Object.keys(meustVotosLocais).length;
-
     const textoBotaoSalvar = usuarioJaVotuNoCliente ? "Atualizar Votos" : "Salvar Votos";
 
     htmlForm += `
@@ -300,70 +357,11 @@
     if (!meuNick) return alert('Selecione seu nick antes de enviar!');
 
     for (const alvo in meustVotosLocais) {
-      await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[meustVotosLocais[alvo] ? alvo : '']}`, { method: 'POST' });
-    }
-
-    // Correção limpa do loop de envio
-    for (const alvo in meustVotosLocais) {
       await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[alvo]}`, { method: 'POST' });
     }
 
     usuarioJaVotuNoCliente = true;
-
-    // Abre o pop-up de aguardo imediatamente após enviar
     modalInstance.show();
-    atualizarStatusVotacaoGeral();
-  }
-
-  function iniciarChecagemVotos() {
-    if (!intervalVotos) {
-      atualizarStatusVotacaoGeral();
-      intervalVotos = setInterval(atualizarStatusVotacaoGeral, 2000);
-    }
-  }
-
-  function pararChecagemVotos() {
-    if (intervalVotos) {
-      clearInterval(intervalVotos);
-      intervalVotos = null;
-    }
-  }
-
-  async function atualizarStatusVotacaoGeral() {
-    const res = await fetch('/api/status-votacao');
-    if (!res.ok) return;
-    const data = await res.json();
-
-    const count = data.totalVotaram;
-    document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
-
-    // Atualiza dados dentro do Modal se ele estiver aberto
-    document.getElementById('qtdVotaram').innerText = data.votaram.length;
-    document.getElementById('qtdFaltam').innerText = data.faltam.length;
-
-    const listaVotaramEl = document.getElementById('listaVotaramModal');
-    const listaFaltamEl = document.getElementById('listaFaltamModal');
-
-    listaVotaramEl.innerHTML = data.votaram.length > 0 ? data.votaram.map(n => `<li><i class="bi bi-check text-success"></i> ${n}</li>`).join('') : '<li class="text-muted">Ninguém ainda</li>';
-    listaFaltamEl.innerHTML = data.faltam.length > 0 ? data.faltam.map(n => `<li><i class="bi bi-dash text-danger"></i> ${n}</li>`).join('') : '<li class="text-success">Todos votaram!</li>';
-
-    const btnGerarTela = document.getElementById('btnConfirmarEGerar');
-    const btnModalLiberar = document.getElementById('btnLiberarGeracaoModal');
-    const textoAviso = document.getElementById('textoAvisoAguarde');
-
-    if (count >= 10) {
-      btnGerarTela.disabled = false;
-      btnGerarTela.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Gerar Equipes Agora';
-
-      btnModalLiberar.style.display = 'block';
-      textoAviso.style.display = 'none';
-    } else {
-      btnGerarTela.disabled = true;
-      btnGerarTela.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos votarem (${count}/10)...`;
-
-      btnModalLiberar.style.display = 'none';
-      textoAviso.style.display = 'block';
-    }
   }
 
   async function fecharModalEGerar() {
@@ -455,12 +453,9 @@
     matrizVotosServidor = {};
     ultimaPartida = null;
     usuarioJaVotuNoCliente = false;
-    pararChecagemVotos();
     if (modalInstance) modalInstance.hide();
     carregar();
   }
-
-  carregar();
 </script>
 </body>
 </html>

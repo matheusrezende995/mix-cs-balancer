@@ -2,6 +2,7 @@ package mixcs;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -19,6 +20,9 @@ public class MixController {
 
     @Autowired
     private VotoRepository votoRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate; // <--- ADICIONADO PARA O WEBSOCKET
 
     private final BalanceadorService balanceadorService = new BalanceadorService();
 
@@ -42,6 +46,10 @@ public class MixController {
         }
 
         jogadorRepository.save(new Jogador(nome.trim()));
+
+        // Notifica via WebSocket que alguém entrou
+        notificarAtualizacaoGeral();
+
         return ResponseEntity.ok("Jogador " + nome + " entrou no lobby!");
     }
 
@@ -73,6 +81,9 @@ public class MixController {
         } else {
             votoRepository.save(new Voto(autorObj, alvoObj, tier));
         }
+
+        // Notifica via WebSocket que um voto foi registado/atualizado
+        notificarAtualizacaoGeral();
 
         return ResponseEntity.ok("Voto registrado com sucesso!");
     }
@@ -112,6 +123,7 @@ public class MixController {
 
         try {
             List<Time> times = balanceadorService.balancearTimes(lobby);
+            notificarAtualizacaoGeral();
             return ResponseEntity.ok(times);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -122,6 +134,10 @@ public class MixController {
     public ResponseEntity<String> resetarLobby() {
         votoRepository.deleteAll();
         jogadorRepository.deleteAll();
+
+        // Notifica via WebSocket que o lobby foi limpo
+        notificarAtualizacaoGeral();
+
         return ResponseEntity.ok("Lobby e votos limpos no banco de dados!");
     }
 
@@ -152,5 +168,15 @@ public class MixController {
         response.put("totalJogadores", todos.size());
 
         return ResponseEntity.ok(response);
+    }
+
+    // Método auxiliar para enviar o push do WebSocket
+    private void notificarAtualizacaoGeral() {
+        try {
+            ResponseEntity<?> responseEntity = obterStatusVotacao();
+            messagingTemplate.convertAndSend("/topic/status", responseEntity.getBody());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
