@@ -11,7 +11,7 @@
 </head>
 <body class="bg-dark text-light min-vh-100 py-4">
 
-<div class="container" style="max-width: 800px;">
+<div class="container" style="max-width: 850px;">
 
   <!-- CABEÇALHO -->
   <div class="text-center mb-4">
@@ -208,10 +208,11 @@
               ${jaVotou ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> Votado</span>' : '<span class="badge bg-warning text-dark">Pendente</span>'}
             </div>
             <div class="btn-group w-100" role="group">
-              <button class="btn ${votoAtual === 1.0 ? 'btn-primary' : 'btn-outline-primary'} btn-sm" onclick="selecionarTier('${j.nome}', 1.0)">T1 <small>(GC A+)</small></button>
-              <button class="btn ${votoAtual === 2.5 ? 'btn-info' : 'btn-outline-info'} btn-sm" onclick="selecionarTier('${j.nome}', 2.5)">T2 <small>(GC A)</small></button>
-              <button class="btn ${votoAtual === 3.5 ? 'btn-warning' : 'btn-outline-warning'} btn-sm" onclick="selecionarTier('${j.nome}', 3.5)">T3 <small>(GC B)</small></button>
-              <button class="btn ${votoAtual === 5.0 ? 'btn-danger' : 'btn-outline-danger'} btn-sm" onclick="selecionarTier('${j.nome}', 5.0)">T4 <small>(GC C)</small></button>
+              <button class="btn ${votoAtual === 1.0 ? 'btn-primary' : 'btn-outline-primary'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 1.0)">Tier 1</button>
+              <button class="btn ${votoAtual === 2.0 ? 'btn-info' : 'btn-outline-info'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 2.0)">Tier 2</button>
+              <button class="btn ${votoAtual === 3.0 ? 'btn-success' : 'btn-outline-success'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 3.0)">Tier 3</button>
+              <button class="btn ${votoAtual === 4.0 ? 'btn-warning' : 'btn-outline-warning'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 4.0)">Tier 4</button>
+              <button class="btn ${votoAtual === 5.0 ? 'btn-danger' : 'btn-outline-danger'} btn-sm px-1" onclick="selecionarTier('${j.nome}', 5.0)">Tier 5</button>
             </div>
           </div>
         </div>
