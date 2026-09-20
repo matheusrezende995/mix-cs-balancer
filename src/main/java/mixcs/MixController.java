@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,6 @@ public class MixController {
             return ResponseEntity.badRequest().body("Não é permitido votar em si mesmo!");
         }
 
-        // Se o voto já existir, atualiza; senão cria um novo
         Optional<Voto> votoExistente = votoRepository.findByAutorAndAlvo(autorObj, alvoObj);
         if (votoExistente.isPresent()) {
             Voto v = votoExistente.get();
@@ -102,14 +102,12 @@ public class MixController {
             return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby!");
         }
 
-        // Calcula a média de cada jogador baseada nos votos do banco de dados
         for (Jogador j : lobby) {
             List<Voto> votosRecebidos = votoRepository.findByAlvo(j);
             double media = votosRecebidos.stream()
                     .mapToDouble(Voto::getTier)
                     .average()
-                    .orElse(3.0); // Padrão T3 caso não haja votos
-            // Passar os dados para a sua lógica de balanceamento de times
+                    .orElse(3.0);
         }
 
         try {
@@ -126,21 +124,26 @@ public class MixController {
         jogadorRepository.deleteAll();
         return ResponseEntity.ok("Lobby e votos limpos no banco de dados!");
     }
+
     @GetMapping("/status-votacao")
     public ResponseEntity<?> obterStatusVotacao() {
         List<Jogador> todos = jogadorRepository.findAll();
 
-        // Filtra quem já registrou votos
-        List<String> votaram = todos.stream()
-                .filter(j -> j.getVotosRecebidos() != null && !j.getVotosRecebidos().isEmpty())
-                .map(Jogador::getNome)
+        List<Long> idsAutoresQueVotaram = votoRepository.findAll().stream()
+                .map(v -> v.getAutor().getId())
+                .distinct()
                 .toList();
 
-        // Filtra quem ainda não votou
-        List<String> faltam = todos.stream()
-                .filter(j -> j.getVotosRecebidos() == null || j.getVotosRecebidos().isEmpty())
-                .map(Jogador::getNome)
-                .toList();
+        List<String> votaram = new ArrayList<>();
+        List<String> faltam = new ArrayList<>();
+
+        for (Jogador j : todos) {
+            if (idsAutoresQueVotaram.contains(j.getId())) {
+                votaram.add(j.getNome());
+            } else {
+                faltam.add(j.getNome());
+            }
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("votaram", votaram);

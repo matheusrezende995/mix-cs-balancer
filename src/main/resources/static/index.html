@@ -104,12 +104,9 @@
             <thead>
             <tr id="cabecalhoMatriz">
               <th class="bg-secondary text-start text-white" style="width: 140px;">Votante \ Alvo</th>
-              <!-- Nomes dos Alvos inseridos via JS -->
             </tr>
             </thead>
-            <tbody id="corpoMatriz">
-            <!-- Células geradas via JS -->
-            </tbody>
+            <tbody id="corpoMatriz"></tbody>
           </table>
         </div>
       </div>
@@ -119,12 +116,60 @@
 
 </div>
 
+<!-- POP-UP (MODAL) DE AGUARDO DE VOTAÇÃO -->
+<div class="modal fade" id="modalAguardandoVotos" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark border-secondary text-light shadow-lg">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title text-warning"><i class="bi bi-hourglass-split"></i> Votos Registrados com Sucesso!</h5>
+      </div>
+      <div class="modal-body text-center">
+        <p class="lead mb-3">Aguarde os outros jogadores terminarem de votar...</p>
+
+        <div class="spinner-border text-warning mb-4" role="status">
+          <span class="visually-hidden">Carregando...</span>
+        </div>
+
+        <div class="row text-start g-2">
+          <div class="col-6">
+            <div class="p-2 bg-body-tertiary rounded border border-success">
+              <h6 class="text-success fw-bold border-bottom pb-1 mb-2"><i class="bi bi-check-circle-fill"></i> Já Votaram (<span id="qtdVotaram">0</span>)</h6>
+              <ul id="listaVotaramModal" class="list-unstyled mb-0 small text-secondary"></ul>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 bg-body-tertiary rounded border border-danger">
+              <h6 class="text-danger fw-bold border-bottom pb-1 mb-2"><i class="bi bi-clock-fill"></i> Faltam Votar (<span id="qtdFaltam">0</span>)</h6>
+              <ul id="listaFaltamModal" class="list-unstyled mb-0 small text-secondary"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-secondary justify-content-center">
+        <button id="btnLiberarGeracaoModal" class="btn btn-success fw-bold w-100" style="display: none;" onclick="fecharModalEGerar()">
+          <i class="bi bi-rocket-takeoff-fill"></i> Todos votaram! Gerar Equipes Agora
+        </button>
+        <p class="text-muted small mb-0 text-center w-100" id="textoAvisoAguarde">Esta tela fechará automaticamente quando todos votarem.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts do Bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
   let todosJogadores = [];
   let meustVotosLocais = {};
   let matrizVotosServidor = {};
   let intervalVotos = null;
   let ultimaPartida = null;
+  let modalInstance = null;
+  let usuarioJaVotuNoCliente = false;
+
+  document.addEventListener("DOMContentLoaded", () => {
+    modalInstance = new bootstrap.Modal(document.getElementById('modalAguardandoVotos'));
+  });
 
   async function carregar() {
     try {
@@ -207,14 +252,14 @@
     let htmlForm = '<div class="row g-3">';
     outros.forEach(j => {
       const votoAtual = meustVotosLocais[j.nome];
-      const jaVotou = votoAtual !== undefined;
+      const jaVotouItem = votoAtual !== undefined;
 
       htmlForm += `
         <div class="col-md-6">
           <div class="card border-secondary bg-dark text-light p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <strong class="fs-5">${j.nome}</strong>
-              ${jaVotou ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="badge bg-warning text-dark">Pendente</span>'}
+              ${jaVotouItem ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="badge bg-warning text-dark">Pendente</span>'}
             </div>
             <div class="btn-group w-100" role="group">
               <button class="btn ${votoAtual === 1.0 ? 'btn-primary' : 'btn-outline-primary'} btn-sm" onclick="selecionarTier('${j.nome}', 1.0)">T1</button>
@@ -232,10 +277,12 @@
     const totalOutros = outros.length;
     const totalVotadosLocal = Object.keys(meustVotosLocais).length;
 
+    const textoBotaoSalvar = usuarioJaVotuNoCliente ? "Atualizar Votos" : "Salvar Votos";
+
     htmlForm += `
       <div class="mt-3">
         <button class="btn btn-warning w-100 fw-bold" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled' : ''}>
-          <i class="bi bi-floppy-fill"></i> Salvar Votos (${totalVotadosLocal}/${totalOutros})
+          <i class="bi bi-floppy-fill"></i> ${textoBotaoSalvar} (${totalVotadosLocal}/${totalOutros})
         </button>
       </div>
     `;
@@ -250,12 +297,21 @@
 
   async function enviarMeusVotos() {
     const meuNick = document.getElementById('meuUsuario').value;
+    if (!meuNick) return alert('Selecione seu nick antes de enviar!');
+
+    for (const alvo in meustVotosLocais) {
+      await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[meustVotosLocais[alvo] ? alvo : '']}`, { method: 'POST' });
+    }
+
+    // Correção limpa do loop de envio
     for (const alvo in meustVotosLocais) {
       await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[alvo]}`, { method: 'POST' });
     }
-    alert('Votos gravados!');
-    meustVotosLocais = {};
-    renderizarVotacao();
+
+    usuarioJaVotuNoCliente = true;
+
+    // Abre o pop-up de aguardo imediatamente após enviar
+    modalInstance.show();
     atualizarStatusVotacaoGeral();
   }
 
@@ -274,20 +330,46 @@
   }
 
   async function atualizarStatusVotacaoGeral() {
-    const res = await fetch('/api/votos-concluidos-count');
+    const res = await fetch('/api/status-votacao');
     if (!res.ok) return;
-    const count = await res.json();
+    const data = await res.json();
 
+    const count = data.totalVotaram;
     document.getElementById('contadorVotosConcluidos').innerText = `${count}/10`;
-    const btn = document.getElementById('btnConfirmarEGerar');
+
+    // Atualiza dados dentro do Modal se ele estiver aberto
+    document.getElementById('qtdVotaram').innerText = data.votaram.length;
+    document.getElementById('qtdFaltam').innerText = data.faltam.length;
+
+    const listaVotaramEl = document.getElementById('listaVotaramModal');
+    const listaFaltamEl = document.getElementById('listaFaltamModal');
+
+    listaVotaramEl.innerHTML = data.votaram.length > 0 ? data.votaram.map(n => `<li><i class="bi bi-check text-success"></i> ${n}</li>`).join('') : '<li class="text-muted">Ninguém ainda</li>';
+    listaFaltamEl.innerHTML = data.faltam.length > 0 ? data.faltam.map(n => `<li><i class="bi bi-dash text-danger"></i> ${n}</li>`).join('') : '<li class="text-success">Todos votaram!</li>';
+
+    const btnGerarTela = document.getElementById('btnConfirmarEGerar');
+    const btnModalLiberar = document.getElementById('btnLiberarGeracaoModal');
+    const textoAviso = document.getElementById('textoAvisoAguarde');
 
     if (count >= 10) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Gerar Equipes Agora';
+      btnGerarTela.disabled = false;
+      btnGerarTela.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Gerar Equipes Agora';
+
+      btnModalLiberar.style.display = 'block';
+      textoAviso.style.display = 'none';
     } else {
-      btn.disabled = true;
-      btn.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos votarem (${count}/10)...`;
+      btnGerarTela.disabled = true;
+      btnGerarTela.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos votarem (${count}/10)...`;
+
+      btnModalLiberar.style.display = 'none';
+      textoAviso.style.display = 'block';
     }
+  }
+
+  async function fecharModalEGerar() {
+    modalInstance.hide();
+    await balancear();
+    carregar();
   }
 
   async function irParaTimes() {
@@ -332,15 +414,13 @@
     const cabecalho = document.getElementById('cabecalhoMatriz');
     const corpo = document.getElementById('corpoMatriz');
 
-    cabecalho.innerHTML = '<th class="bg-secondary text-start text-white">Votante \\ Alvo</th>';
+    cabecalho.innerHTML = '<th class="bg-secondary text-start text-white" style="width: 140px;">Votante \\ Alvo</th>';
     corpo.innerHTML = '';
 
-    // Colunas (Alvos)
     todosJogadores.forEach(j => {
       cabecalho.innerHTML += `<th class="text-center text-warning fw-bold">${j.nome}</th>`;
     });
 
-    // Linhas (Votantes)
     todosJogadores.forEach(votante => {
       let tr = `<tr><td class="fw-bold text-start text-info bg-dark-subtle">${votante.nome}</td>`;
       todosJogadores.forEach(alvo => {
@@ -374,7 +454,9 @@
     meustVotosLocais = {};
     matrizVotosServidor = {};
     ultimaPartida = null;
+    usuarioJaVotuNoCliente = false;
     pararChecagemVotos();
+    if (modalInstance) modalInstance.hide();
     carregar();
   }
 
