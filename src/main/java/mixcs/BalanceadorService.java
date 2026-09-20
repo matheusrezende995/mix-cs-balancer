@@ -13,7 +13,6 @@ public class BalanceadorService {
             throw new IllegalArgumentException("É necessário ter exatamente 10 jogadores no lobby.");
         }
 
-        // Valida se todos possuem habilidade média cadastrada (> 0)
         boolean todosVotados = jogadores.stream().allMatch(j -> j.getHabilidadeMedia() > 0);
         if (!todosVotados) {
             throw new IllegalStateException("Todos os 10 jogadores precisam ser votados antes de realizar o balanceamento!");
