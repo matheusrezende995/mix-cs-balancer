@@ -18,39 +18,60 @@ public class BalanceadorService {
             throw new IllegalStateException("Todos os 10 jogadores precisam ser votados antes de realizar o balanceamento!");
         }
 
-        jogadores.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia));
+        // Encontra a melhor combinação 5v5 entre as 252 possibilidades possíveis
+        List<Jogador> melhorTime1 = new ArrayList<>();
+        List<Jogador> melhorTime2 = new ArrayList<>();
+        double menorDiferenca = Double.MAX_VALUE;
 
-        List<Jogador> time1 = new ArrayList<>();
-        List<Jogador> time2 = new ArrayList<>();
-        double soma1 = 0;
-        double soma2 = 0;
+        // Total de 10 jogadores, escolhemos 5 para formar o Time 1 (C(10,5) = 252 combinações)
+        List<List<Jogador>> combinacoesTime1 = gerarCombinacoes(jogadores, 5);
 
-        for (int i = 0; i < jogadores.size(); i++) {
-            Jogador j = jogadores.get(i);
-            if (soma1 <= soma2) {
-                if (time1.size() < 5) {
-                    time1.add(j);
-                    soma1 += j.getHabilidadeMedia();
-                } else {
-                    time2.add(j);
-                    soma2 += j.getHabilidadeMedia();
-                }
-            } else {
-                if (time2.size() < 5) {
-                    time2.add(j);
-                    soma2 += j.getHabilidadeMedia();
-                } else {
-                    time1.add(j);
-                    soma1 += j.getHabilidadeMedia();
-                }
+        for (List<Jogador> t1 : combinacoesTime1) {
+            List<Jogador> t2 = new ArrayList<>(jogadores);
+            t2.removeAll(t1); // O restante forma o Time 2
+
+            double soma1 = t1.stream().mapToDouble(Jogador::getHabilidadeMedia).sum();
+            double soma2 = t2.stream().mapToDouble(Jogador::getHabilidadeMedia).sum();
+            double diferenca = Math.abs(soma1 - soma2);
+
+            // Se encontrarmos uma diferença menor, esta passa a ser a melhor divisão
+            if (diferenca < menorDiferenca) {
+                menorDiferenca = diferenca;
+                melhorTime1 = t1;
+                melhorTime2 = t2;
             }
         }
 
+        // Opcional: Ordenar os jogadores dentro de cada time por habilidade para manter a organização visual
+        melhorTime1.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia).reversed());
+        melhorTime2.sort(Comparator.comparingDouble(Jogador::getHabilidadeMedia).reversed());
+
         List<Time> partida = new ArrayList<>();
-        partida.add(new Time("Counter-Terrorists", time1));
-        partida.add(new Time("Terrorists", time2));
+        partida.add(new Time("Counter-Terrorists", melhorTime1));
+        partida.add(new Time("Terrorists", melhorTime2));
 
         return partida;
+    }
+
+    /**
+     * Método auxiliar recursivo para gerar todas as combinações possíveis de tamanho K a partir de uma lista.
+     */
+    private List<List<Jogador>> gerarCombinacoes(List<Jogador> jogadores, int k) {
+        List<List<Jogador>> resultado = new ArrayList<>();
+        combinarRecursivo(jogadores, k, 0, new ArrayList<>(), resultado);
+        return resultado;
+    }
+
+    private void combinarRecursivo(List<Jogador> jogadores, int k, int inicio, List<Jogador> atual, List<List<Jogador>> resultado) {
+        if (atual.size() == k) {
+            resultado.add(new ArrayList<>(atual));
+            return;
+        }
+        for (int i = inicio; i < jogadores.size(); i++) {
+            atual.add(jogadores.get(i));
+            combinarRecursivo(jogadores, k, i + 1, atual, resultado);
+            atual.remove(atual.size() - 1);
+        }
     }
 
     // --- MODO CAPITÃES (DRAFT) -----
