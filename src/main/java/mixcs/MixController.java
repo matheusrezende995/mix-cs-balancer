@@ -22,7 +22,7 @@ public class MixController {
     private VotoRepository votoRepository;
 
     @Autowired
-    private SimpMessagingTemplate messagingTemplate; // <--- ADICIONADO PARA O WEBSOCKET
+    private SimpMessagingTemplate messagingTemplate;
 
     private final BalanceadorService balanceadorService = new BalanceadorService();
 
@@ -34,20 +34,19 @@ public class MixController {
     @PostMapping("/entrar")
     public ResponseEntity<String> entrarLobby(@RequestParam String nome) {
         if (nome == null || nome.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body("Nome inválido!");
+            throw new IllegalArgumentException("Nome inválido!");
         }
 
         if (jogadorRepository.existsByNomeIgnoreCase(nome)) {
-            return ResponseEntity.badRequest().body("Jogador já cadastrado no lobby!");
+            throw new IllegalArgumentException("Jogador já cadastrado no lobby!");
         }
 
         if (jogadorRepository.count() >= 10) {
-            return ResponseEntity.badRequest().body("Lobby cheio (máximo 10 jogadores)!");
+            throw new IllegalArgumentException("Lobby cheio (máximo 10 jogadores)!");
         }
 
         jogadorRepository.save(new Jogador(nome.trim()));
 
-        // Notifica via WebSocket que alguém entrou
         notificarAtualizacaoGeral();
 
         return ResponseEntity.ok("Jogador " + nome + " entrou no lobby!");
@@ -56,21 +55,21 @@ public class MixController {
     @PostMapping("/votar")
     public ResponseEntity<String> votarTier(@RequestParam String autor, @RequestParam String alvo, @RequestParam double tier) {
         if (jogadorRepository.count() < 10) {
-            return ResponseEntity.badRequest().body("A votação só é liberada com 10 jogadores!");
+            throw new IllegalStateException("A votação só é liberada com 10 jogadores!");
         }
 
         Optional<Jogador> autorOpt = jogadorRepository.findByNomeIgnoreCase(autor);
         Optional<Jogador> alvoOpt = jogadorRepository.findByNomeIgnoreCase(alvo);
 
         if (autorOpt.isEmpty() || alvoOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Jogador autor ou alvo não foi encontrado!");
+            throw new IllegalArgumentException("Jogador autor ou alvo não foi encontrado!");
         }
 
         Jogador autorObj = autorOpt.get();
         Jogador alvoObj = alvoOpt.get();
 
         if (autorObj.getId().equals(alvoObj.getId())) {
-            return ResponseEntity.badRequest().body("Não é permitido votar em si mesmo!");
+            throw new IllegalArgumentException("Não é permitido votar em si mesmo!");
         }
 
         Optional<Voto> votoExistente = votoRepository.findByAutorAndAlvo(autorObj, alvoObj);
@@ -82,7 +81,6 @@ public class MixController {
             votoRepository.save(new Voto(autorObj, alvoObj, tier));
         }
 
-        // Notifica via WebSocket que um voto foi registado/atualizado
         notificarAtualizacaoGeral();
 
         return ResponseEntity.ok("Voto registrado com sucesso!");
@@ -107,10 +105,10 @@ public class MixController {
     }
 
     @GetMapping("/balancear")
-    public ResponseEntity<?> balancearPartida() {
+    public ResponseEntity<List<Time>> balancearPartida() {
         List<Jogador> lobby = jogadorRepository.findAll();
         if (lobby.size() < 10) {
-            return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby!");
+            throw new IllegalStateException("É necessário ter 10 jogadores no lobby!");
         }
 
         for (Jogador j : lobby) {
@@ -119,15 +117,13 @@ public class MixController {
                     .mapToDouble(Voto::getTier)
                     .average()
                     .orElse(3.0);
+            // Se precisar setar a média no objeto jogador dinamicamente para o balanceador usar:
+            j.setHabilidadeMedia(media);
         }
 
-        try {
-            List<Time> times = balanceadorService.balancearTimes(lobby);
-            notificarAtualizacaoGeral();
-            return ResponseEntity.ok(times);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        List<Time> times = balanceadorService.balancearTimes(lobby);
+        notificarAtualizacaoGeral();
+        return ResponseEntity.ok(times);
     }
 
     @PostMapping("/resetar")
@@ -135,14 +131,13 @@ public class MixController {
         votoRepository.deleteAll();
         jogadorRepository.deleteAll();
 
-        // Notifica via WebSocket que o lobby foi limpo
         notificarAtualizacaoGeral();
 
         return ResponseEntity.ok("Lobby e votos limpos no banco de dados!");
     }
 
     @GetMapping("/status-votacao")
-    public ResponseEntity<?> obterStatusVotacao() {
+    public ResponseEntity<Map<String, Object>> obterStatusVotacao() {
         List<Jogador> todos = jogadorRepository.findAll();
 
         List<Long> idsAutoresQueVotaram = votoRepository.findAll().stream()
@@ -170,10 +165,9 @@ public class MixController {
         return ResponseEntity.ok(response);
     }
 
-    // Método auxiliar para enviar o push do WebSocket
     private void notificarAtualizacaoGeral() {
         try {
-            ResponseEntity<?> responseEntity = obterStatusVotacao();
+            ResponseEntity<Map<String, Object>> responseEntity = obterStatusVotacao();
             messagingTemplate.convertAndSend("/topic/status", responseEntity.getBody());
         } catch (Exception e) {
             e.printStackTrace();

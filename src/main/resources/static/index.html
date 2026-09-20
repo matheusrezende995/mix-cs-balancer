@@ -183,7 +183,7 @@
 
     const socket = new SockJS('/ws-mix');
     stompClient = Stomp.over(socket);
-    stompClient.debug = null; // Desativa logs no console do browser
+    stompClient.debug = null;
 
     stompClient.connect({}, function (frame) {
       console.log('Conectado ao WebSocket com sucesso!');
@@ -191,7 +191,7 @@
       stompClient.subscribe('/topic/status', function (messageOutput) {
         const dadosStatus = JSON.parse(messageOutput.body);
         atualizarInterfaceComDados(dadosStatus);
-        carregar(); // Atualiza o lobby / fases em tempo real
+        carregar();
       });
     }, function (error) {
       console.error('Erro na conexão WebSocket. Tentando reconectar em 5s...', error);
@@ -281,13 +281,26 @@
     }
   }
 
+  // Função auxiliar para extrair a mensagem de erro formatada do DTO JSON
+  async function tratarErroFetch(response) {
+    try {
+      const erroJson = await response.json();
+      return erroJson.mensagem || "Erro desconhecido no servidor.";
+    } catch (e) {
+      return "Erro de comunicação com o servidor.";
+    }
+  }
+
   async function entrar() {
     const nomeInput = document.getElementById('nome');
     const nome = nomeInput.value.trim();
     if (!nome) return alert('Digite seu nick!');
 
     const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
-    if (!res.ok) return alert(await res.text());
+    if (!res.ok) {
+      const mensagemErro = await tratarErroFetch(res);
+      return alert(mensagemErro);
+    }
     nomeInput.value = '';
     carregar();
   }
@@ -357,7 +370,11 @@
     if (!meuNick) return alert('Selecione seu nick antes de enviar!');
 
     for (const alvo in meustVotosLocais) {
-      await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[alvo]}`, { method: 'POST' });
+      const res = await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[alvo]}`, { method: 'POST' });
+      if (!res.ok) {
+        const mensagemErro = await tratarErroFetch(res);
+        return alert(mensagemErro);
+      }
     }
 
     usuarioJaVotuNoCliente = true;
@@ -377,7 +394,10 @@
 
   async function balancear() {
     const res = await fetch('/api/balancear');
-    if (!res.ok) return alert(await res.text());
+    if (!res.ok) {
+      const mensagemErro = await tratarErroFetch(res);
+      return alert(mensagemErro);
+    }
 
     const times = await res.json();
     ultimaPartida = times;
@@ -448,7 +468,11 @@
 
   async function limparLobby() {
     if (!confirm("Resetar sala?")) return;
-    await fetch('/api/resetar', { method: 'POST' });
+    const res = await fetch('/api/resetar', { method: 'POST' });
+    if (!res.ok) {
+      const mensagemErro = await tratarErroFetch(res);
+      return alert(mensagemErro);
+    }
     meustVotosLocais = {};
     matrizVotosServidor = {};
     ultimaPartida = null;
