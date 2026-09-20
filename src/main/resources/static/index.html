@@ -1,165 +1,188 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="dark">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MIX CS2 - Balanceador de Partidas</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <title>MIX CS2 - Balancer</title>
+
+  <!-- Ícones do Bootstrap -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
-  <!-- Bibliotecas do WebSocket (SockJS e STOMP) -->
+  <!-- Biblioteca do WebSocket (SockJS e STOMP) -->
   <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-</head>
-<body class="bg-dark text-light min-vh-100 py-4">
 
-<div class="container-fluid px-4" style="max-width: 1200px;">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen py-6 font-sans selection:bg-amber-500 selection:text-zinc-950">
+
+<div class="max-w-5xl mx-auto px-4">
 
   <!-- CABEÇALHO -->
-  <div class="text-center mb-4">
-    <h1 class="display-5 fw-bold text-warning"><i class="bi bi-crosshair"></i> MIX CS2</h1>
-    <p class="text-secondary">Balanceamento Automático e Matriz de Votação</p>
+  <div class="text-center mb-8">
+    <h1 class="text-4xl font-black tracking-wider text-amber-400 uppercase drop-shadow-[0_0_10px_rgba(251,191,36,0.3)]">
+      <i class="bi bi-crosshair"></i> MIX CS2
+    </h1>
+    <p class="text-zinc-400 text-sm tracking-widest uppercase mt-1">Tactical Matchmaking & Voting Matrix</p>
   </div>
 
   <!-- FASE 1: LOBBY -->
-  <div id="faseLobby" class="card border-secondary bg-body-tertiary shadow mx-auto" style="max-width: 800px;">
-    <div class="card-header d-flex justify-content-between align-items-center border-secondary">
-      <h5 class="mb-0"><i class="bi bi-people-fill"></i> Sala de Espera</h5>
-      <span class="badge bg-warning text-dark fs-6" id="countBadge">0/10</span>
+  <div id="faseLobby" class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 max-w-2xl mx-auto">
+    <div class="flex justify-between items-center border-b border-zinc-800 pb-4 mb-4">
+      <h5 class="text-lg font-bold flex items-center gap-2 text-zinc-200">
+        <i class="bi bi-people-fill text-amber-400"></i> Sala de Operações (Lobby)
+      </h5>
+      <span class="bg-amber-500/10 border border-amber-500/30 text-amber-400 font-bold px-3 py-1 rounded text-sm" id="countBadge">0/10</span>
     </div>
-    <div class="card-body">
-      <div class="input-group mb-3">
-        <input type="text" id="nome" class="form-control" placeholder="Digite seu Nick no CS2..." onkeypress="if(event.key==='Enter') entrar()">
-        <button class="btn btn-warning fw-bold" onclick="entrar()"><i class="bi bi-plus-circle"></i> Entrar</button>
+
+    <div>
+      <div class="flex gap-2 mb-4">
+        <input type="text" id="nome" class="flex-1 bg-zinc-950 border border-zinc-800 text-zinc-100 placeholder-zinc-600 px-4 py-2.5 rounded focus:outline-none focus:border-amber-400 focus:shadow-[0_0_12px_rgba(251,191,36,0.2)] transition-all" placeholder="INSIRA SEU NICK..." onkeypress="if(event.key==='Enter') entrar()">
+        <button class="bg-zinc-900 border border-amber-500/50 text-amber-400 font-bold px-6 py-2.5 rounded tracking-wide uppercase transition-all duration-300 hover:bg-amber-400 hover:text-zinc-950 hover:shadow-[0_0_15px_rgba(251,191,36,0.5)] flex items-center gap-2" onclick="entrar()">
+          <i class="bi bi-plus-circle"></i> Entrar
+        </button>
       </div>
-      <ul id="listaLobby" class="list-group border rounded border-secondary mb-3"></ul>
-      <div class="text-end">
-        <button class="btn btn-outline-danger btn-sm" onclick="limparLobby()"><i class="bi bi-trash"></i> Resetar Lobby</button>
+
+      <ul id="listaLobby" class="space-y-2 mb-6 min-h-[120px] max-h-[300px] overflow-y-auto pr-1"></ul>
+
+      <div class="text-right">
+        <button class="border border-red-500/40 text-red-400 hover:bg-red-500 hover:text-zinc-950 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded transition-all" onclick="limparLobby()">
+          <i class="bi bi-trash"></i> Resetar Lobby
+        </button>
       </div>
     </div>
   </div>
 
   <!-- FASE 2: VOTAÇÃO -->
-  <div id="faseVotacao" class="card border-secondary bg-body-tertiary shadow mx-auto" style="max-width: 800px; display: none;">
-    <div class="card-header border-secondary">
-      <h5 class="mb-0"><i class="bi bi-star-fill text-warning"></i> Fase de Votação</h5>
+  <div id="faseVotacao" class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 max-w-3xl mx-auto" style="display: none;">
+    <div class="border-b border-zinc-800 pb-4 mb-4">
+      <h5 class="text-lg font-bold flex items-center gap-2 text-zinc-200">
+        <i class="bi bi-star-fill text-amber-400"></i> Fase de Avaliação de Tiers
+      </h5>
     </div>
-    <div class="card-body">
-      <label for="meuUsuario" class="form-label fw-bold">Quem é você na sala?</label>
-      <select id="meuUsuario" class="form-select mb-4" onchange="renderizarVotacao()">
-        <option value="">-- Selecione seu Nick --</option>
+
+    <div>
+      <label for="meuUsuario" class="block text-sm font-bold text-zinc-400 mb-2 uppercase tracking-wide">Quem é você na operação?</label>
+      <select id="meuUsuario" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 px-4 py-2.5 rounded focus:outline-none focus:border-amber-400 mb-6" onchange="renderizarVotacao()">
+        <option value="">-- SELECIONE SEU OPERADOR --</option>
       </select>
 
-      <div id="painelVotacao"></div>
+      <div id="painelVotacao" class="space-y-4"></div>
 
-      <div id="boxStatusVotacao" class="text-center mt-4 p-3 bg-dark rounded border border-secondary" style="display: none;">
-        <p class="mb-2">Votações concluídas no lobby: <strong id="contadorVotosConcluidos" class="text-info">0/10</strong></p>
-        <button id="btnConfirmarEGerar" class="btn btn-success w-100 fw-bold py-2" onclick="irParaTimes()" disabled>
+      <div id="boxStatusVotacao" class="text-center mt-6 p-4 bg-zinc-950 rounded border border-zinc-800" style="display: none;">
+        <p class="text-sm text-zinc-400 mb-3">Votações concluídas no servidor: <strong id="contadorVotosConcluidos" class="text-amber-400">0/10</strong></p>
+        <button id="btnConfirmarEGerar" class="w-full bg-emerald-600/20 border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500 hover:text-zinc-950 font-bold py-3 rounded uppercase tracking-wider transition-all shadow-lg" onclick="irParaTimes()" disabled>
           <i class="bi bi-lock-fill"></i> Aguardando todos os jogadores votarem...
         </button>
       </div>
 
-      <div class="text-end mt-3">
-        <button class="btn btn-outline-danger btn-sm" onclick="limparLobby()"><i class="bi bi-trash"></i> Resetar Lobby</button>
+      <div class="text-right mt-4">
+        <button class="border border-red-500/40 text-red-400 hover:bg-red-500 hover:text-zinc-950 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded transition-all" onclick="limparLobby()">
+          <i class="bi bi-trash"></i> Resetar Lobby
+        </button>
       </div>
     </div>
   </div>
 
   <!-- FASE 3: TIMES E MATRIZ DE VOTOS -->
-  <div id="faseFormacao" class="card border-secondary bg-body-tertiary shadow" style="display: none;">
-    <div class="card-header border-secondary text-center">
-      <h4 class="mb-0"><i class="bi bi-trophy-fill text-warning"></i> Confronto Definido</h4>
+  <div id="faseFormacao" class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6" style="display: none;">
+    <div class="text-center border-b border-zinc-800 pb-4 mb-6">
+      <h4 class="text-xl font-black uppercase tracking-wider text-amber-400">
+        <i class="bi bi-trophy-fill"></i> Confronto Definido
+      </h4>
     </div>
-    <div class="card-body">
 
-      <!-- CONFRONTOS -->
-      <div class="row g-3 mb-4">
-        <div class="col-md-6">
-          <div class="card border-info bg-dark">
-            <div class="card-header bg-info text-dark fw-bold text-center">
-              <i class="bi bi-shield-fill"></i> Counter-Terrorists
-            </div>
-            <ul id="timeCT" class="list-group list-group-flush"></ul>
-          </div>
+    <!-- CONFRONTOS -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="bg-zinc-950 border border-sky-500/30 rounded-lg overflow-hidden shadow-lg">
+        <div class="bg-sky-500/10 border-b border-sky-500/30 text-sky-400 font-bold text-center py-2.5 uppercase tracking-wide">
+          <i class="bi bi-shield-fill"></i> Counter-Terrorists
         </div>
-        <div class="col-md-6">
-          <div class="card border-warning bg-dark">
-            <div class="card-header bg-warning text-dark fw-bold text-center">
-              <i class="bi bi-fire"></i> Terrorists
-            </div>
-            <ul id="timeTR" class="list-group list-group-flush"></ul>
-          </div>
-        </div>
+        <ul id="timeCT" class="divide-y divide-zinc-900 p-2"></ul>
       </div>
 
-      <div class="text-center mb-4">
-        <button class="btn btn-primary me-2" onclick="copiarParaDiscord()"><i class="bi bi-discord"></i> Copiar para Discord</button>
-        <button class="btn btn-outline-light" onclick="limparLobby()"><i class="bi bi-arrow-clockwise"></i> Nova Partida</button>
-      </div>
-
-      <!-- MATRIZ GRADE DE VOTAÇÃO -->
-      <div class="card border-secondary bg-dark text-light">
-        <div class="card-header border-secondary">
-          <h5 class="mb-0 text-warning"><i class="bi bi-grid-3x3-gap-fill me-2"></i> Matriz Cruzada de Votação</h5>
-          <small class="text-secondary">As linhas representam quem votou e as colunas quem recebeu o voto.</small>
+      <div class="bg-zinc-950 border border-amber-500/30 rounded-lg overflow-hidden shadow-lg">
+        <div class="bg-amber-500/10 border-b border-amber-500/30 text-amber-400 font-bold text-center py-2.5 uppercase tracking-wide">
+          <i class="bi bi-fire"></i> Terrorists
         </div>
-        <div class="card-body p-0 table-responsive">
-          <table class="table table-dark table-bordered table-striped text-center align-middle mb-0" style="font-size: 0.9rem;">
-            <thead>
-            <tr id="cabecalhoMatriz">
-              <th class="bg-secondary text-start text-white" style="width: 140px;">Votante \ Alvo</th>
-            </tr>
-            </thead>
-            <tbody id="corpoMatriz"></tbody>
-          </table>
-        </div>
+        <ul id="timeTR" class="divide-y divide-zinc-900 p-2"></ul>
       </div>
-
     </div>
+
+    <div class="flex justify-center gap-4 mb-8">
+      <button class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-5 py-2.5 rounded transition-all flex items-center gap-2 shadow-lg" onclick="copiarParaDiscord()">
+        <i class="bi bi-discord"></i> Copiar para Discord
+      </button>
+      <button class="border border-zinc-700 text-zinc-300 hover:bg-zinc-800 font-bold px-5 py-2.5 rounded transition-all flex items-center gap-2" onclick="limparLobby()">
+        <i class="bi bi-arrow-clockwise"></i> Nova Partida
+      </button>
+    </div>
+
+    <!-- MATRIZ GRADE DE VOTAÇÃO -->
+    <div class="bg-zinc-950 border border-zinc-800 rounded-lg overflow-hidden">
+      <div class="p-4 border-b border-zinc-800">
+        <h5 class="text-base font-bold text-amber-400 mb-1">
+          <i class="bi bi-grid-3x3-gap-fill me-2"></i> Matriz Cruzada de Votação
+        </h5>
+        <p class="text-xs text-zinc-500">As linhas representam quem votou e as colunas quem recebeu o tier.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-center text-sm border-collapse">
+          <thead>
+          <tr id="cabecalhoMatriz" class="bg-zinc-900 border-b border-zinc-800 text-zinc-300">
+            <th class="text-left px-4 py-3 font-bold border-r border-zinc-800">Votante \ Alvo</th>
+          </tr>
+          </thead>
+          <tbody id="corpoMatriz" class="divide-y divide-zinc-900"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 
 </div>
 
 <!-- POP-UP (MODAL) DE AGUARDO DE VOTAÇÃO -->
-<div class="modal fade" id="modalAguardandoVotos" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content bg-dark border-secondary text-light shadow-lg">
-      <div class="modal-header border-secondary">
-        <h5 class="modal-title text-warning"><i class="bi bi-hourglass-split"></i> Votos Registrados com Sucesso!</h5>
-      </div>
-      <div class="modal-body text-center">
-        <p class="lead mb-3">Aguarde os outros jogadores terminarem de votar...</p>
+<div class="modal fade fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" id="modalAguardandoVotos" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true" style="display: none;">
+  <div class="bg-zinc-900 border border-zinc-800 rounded-xl max-w-md w-full p-6 shadow-2xl text-zinc-100">
+    <div class="border-b border-zinc-800 pb-3 mb-4">
+      <h5 class="text-amber-400 font-bold flex items-center gap-2">
+        <i class="bi bi-hourglass-split"></i> Votos Registrados com Sucesso!
+      </h5>
+    </div>
 
-        <div class="spinner-border text-warning mb-4" role="status">
-          <span class="visually-hidden">Carregando...</span>
-        </div>
+    <div class="text-center mb-6">
+      <p class="text-zinc-300 text-sm mb-4">Aguarde os outros operadores terminarem de avaliar...</p>
 
-        <div class="row text-start g-2">
-          <div class="col-6">
-            <div class="p-2 bg-body-tertiary rounded border border-success">
-              <h6 class="text-success fw-bold border-bottom pb-1 mb-2"><i class="bi bi-check-circle-fill"></i> Já Votaram (<span id="qtdVotaram">0</span>)</h6>
-              <ul id="listaVotaramModal" class="list-unstyled mb-0 small text-secondary"></ul>
-            </div>
-          </div>
-          <div class="col-6">
-            <div class="p-2 bg-body-tertiary rounded border border-danger">
-              <h6 class="text-danger fw-bold border-bottom pb-1 mb-2"><i class="bi bi-clock-fill"></i> Faltam Votar (<span id="qtdFaltam">0</span>)</h6>
-              <ul id="listaFaltamModal" class="list-unstyled mb-0 small text-secondary"></ul>
-            </div>
-          </div>
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-amber-400 border-t-transparent mb-6"></div>
+
+      <div class="grid grid-cols-2 gap-3 text-left">
+        <div class="bg-zinc-950 p-3 rounded border border-emerald-500/30">
+          <h6 class="text-emerald-400 font-bold text-xs border-b border-emerald-500/20 pb-1 mb-2">
+            <i class="bi bi-check-circle-fill"></i> Votaram (<span id="qtdVotaram">0</span>)
+          </h6>
+          <ul id="listaVotaramModal" class="space-y-1 text-xs text-zinc-400"></ul>
+        </div>
+        <div class="bg-zinc-950 p-3 rounded border border-rose-500/30">
+          <h6 class="text-rose-400 font-bold text-xs border-b border-rose-500/20 pb-1 mb-2">
+            <i class="bi bi-clock-fill"></i> Faltam (<span id="qtdFaltam">0</span>)
+          </h6>
+          <ul id="listaFaltamModal" class="space-y-1 text-xs text-zinc-400"></ul>
         </div>
       </div>
-      <div class="modal-footer border-secondary justify-content-center">
-        <button id="btnLiberarGeracaoModal" class="btn btn-success fw-bold w-100" style="display: none;" onclick="fecharModalEGerar()">
-          <i class="bi bi-rocket-takeoff-fill"></i> Todos votaram! Gerar Equipes Agora
-        </button>
-        <p class="text-muted small mb-0 text-center w-100" id="textoAvisoAguarde">Esta tela fechará automaticamente quando todos votarem.</p>
-      </div>
+    </div>
+
+    <div class="border-t border-zinc-800 pt-4 text-center">
+      <button id="btnLiberarGeracaoModal" class="w-full bg-emerald-600 hover:bg-emerald-500 text-zinc-950 font-bold py-2.5 rounded transition-all uppercase text-sm shadow-lg" style="display: none;" onclick="fecharModalEGerar()">
+        <i class="bi bi-rocket-takeoff-fill"></i> Todos votaram! Gerar Equipes
+      </button>
+      <p class="text-zinc-500 text-xs" id="textoAvisoAguarde">Esta tela fechará automaticamente.</p>
     </div>
   </div>
 </div>
 
-<!-- Scripts do Bootstrap -->
+<!-- Scripts do Bootstrap Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
@@ -173,9 +196,24 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     modalInstance = new bootstrap.Modal(document.getElementById('modalAguardandoVotos'));
+
+    // Trava de sessão no navegador: Se o usuário já entrou com um nick nesta aba/navegador anteriormente, preenche ou bloqueia duplicidade
+    verificarSessaoSalva();
+
     conectarWebSocket();
     carregar();
   });
+
+  function verificarSessaoSalva() {
+    const nickSalvo = localStorage.getItem('mix_cs2_nick');
+    if (nickSalvo) {
+      // Opcional: Travar o select de usuário na tela de votação automaticamente para o nick salvo
+      const selectUsuario = document.getElementById('meuUsuario');
+      if(selectUsuario) {
+        selectUsuario.value = nickSalvo;
+      }
+    }
+  }
 
   // Conexão WebSocket via STOMP / SockJS
   function conectarWebSocket() {
@@ -210,8 +248,8 @@
     const listaVotaramEl = document.getElementById('listaVotaramModal');
     const listaFaltamEl = document.getElementById('listaFaltamModal');
 
-    listaVotaramEl.innerHTML = data.votaram.length > 0 ? data.votaram.map(n => `<li><i class="bi bi-check text-success"></i> ${n}</li>`).join('') : '<li class="text-muted">Ninguém ainda</li>';
-    listaFaltamEl.innerHTML = data.faltam.length > 0 ? data.faltam.map(n => `<li><i class="bi bi-dash text-danger"></i> ${n}</li>`).join('') : '<li class="text-success">Todos votaram!</li>';
+    listaVotaramEl.innerHTML = data.votaram.length > 0 ? data.votaram.map(n => `<li class="truncate"><i class="bi bi-check text-emerald-400"></i> ${n}</li>`).join('') : '<li class="text-zinc-600">Ninguém</li>';
+    listaFaltamEl.innerHTML = data.faltam.length > 0 ? data.faltam.map(n => `<li class="truncate"><i class="bi bi-dash text-rose-400"></i> ${n}</li>`).join('') : '<li class="text-emerald-400 font-bold">Todos!</li>';
 
     const btnGerarTela = document.getElementById('btnConfirmarEGerar');
     const btnModalLiberar = document.getElementById('btnLiberarGeracaoModal');
@@ -219,13 +257,15 @@
 
     if (count >= 10) {
       btnGerarTela.disabled = false;
+      btnGerarTela.className = "w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold py-3 rounded uppercase tracking-wider transition-all shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer";
       btnGerarTela.innerHTML = '<i class="bi bi-rocket-takeoff-fill"></i> Gerar Equipes Agora';
 
       btnModalLiberar.style.display = 'block';
       textoAviso.style.display = 'none';
     } else {
       btnGerarTela.disabled = true;
-      btnGerarTela.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos votarem (${count}/10)...`;
+      btnGerarTela.className = "w-full bg-zinc-800 text-zinc-500 font-bold py-3 rounded uppercase tracking-wider cursor-not-allowed";
+      btnGerarTela.innerHTML = `<i class="bi bi-lock-fill"></i> Aguardando todos (${count}/10)...`;
 
       btnModalLiberar.style.display = 'none';
       textoAviso.style.display = 'block';
@@ -244,19 +284,22 @@
       listaLobby.innerHTML = '';
 
       const selectUsuario = document.getElementById('meuUsuario');
-      const usuarioSelecionado = selectUsuario.value;
-      selectUsuario.innerHTML = '<option value="">-- Selecione seu Nick --</option>';
+      const usuarioSelecionado = selectUsuario.value || localStorage.getItem('mix_cs2_nick');
+      selectUsuario.innerHTML = '<option value="">-- SELECIONE SEU OPERADOR --</option>';
 
       if (total === 0) {
-        listaLobby.innerHTML = '<li class="list-group-item text-secondary text-center">Nenhum jogador na sala ainda.</li>';
+        listaLobby.innerHTML = '<li class="text-zinc-600 text-center py-4 text-sm uppercase tracking-wider">Nenhum operador na sala.</li>';
+        localStorage.removeItem('mix_cs2_nick'); // Limpa se o lobby foi resetado
       } else {
         todosJogadores.forEach(j => {
-          listaLobby.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary"><i class="bi bi-person-fill text-warning me-2"></i>${j.nome}</li>`;
+          listaLobby.innerHTML += `<li class="bg-zinc-950 border border-zinc-800 text-zinc-200 px-4 py-2.5 rounded flex items-center gap-2"><i class="bi bi-person-fill text-amber-400"></i> ${j.nome}</li>`;
           selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome}</option>`;
         });
       }
 
-      selectUsuario.value = usuarioSelecionado;
+      if (usuarioSelecionado) {
+        selectUsuario.value = usuarioSelecionado;
+      }
 
       const faseLobby = document.getElementById('faseLobby');
       const faseVotacao = document.getElementById('faseVotacao');
@@ -281,7 +324,6 @@
     }
   }
 
-  // Função auxiliar para extrair a mensagem de erro formatada do DTO JSON
   async function tratarErroFetch(response) {
     try {
       const erroJson = await response.json();
@@ -296,11 +338,20 @@
     const nome = nomeInput.value.trim();
     if (!nome) return alert('Digite seu nick!');
 
+    // TRAVA NO CLIENTE: Evita mandar requisição se já estiver gravado neste navegador
+    const nickSalvo = localStorage.getItem('mix_cs2_nick');
+    if (nickSalvo && nickSalvo.toLowerCase() === nome.toLowerCase()) {
+      return alert('Você já está registrado neste navegador!');
+    }
+
     const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
     if (!res.ok) {
       const mensagemErro = await tratarErroFetch(res);
       return alert(mensagemErro);
     }
+
+    // Salva na memória do navegador para travar novas abas com o mesmo nome
+    localStorage.setItem('mix_cs2_nick', nome);
     nomeInput.value = '';
     carregar();
   }
@@ -312,7 +363,7 @@
     painel.innerHTML = '';
 
     if (!meuNick) {
-      painel.innerHTML = '<p class="text-secondary text-center my-4"><i class="bi bi-info-circle me-1"></i> Selecione seu nick acima para liberar as opções de voto.</p>';
+      painel.innerHTML = '<p class="text-zinc-500 text-center py-6 text-sm"><i class="bi bi-info-circle me-1"></i> Selecione seu operador acima para habilitar o painel de avaliação.</p>';
       boxStatus.style.display = 'none';
       return;
     }
@@ -320,25 +371,23 @@
     boxStatus.style.display = 'block';
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
-    let htmlForm = '<div class="row g-3">';
+    let htmlForm = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
     outros.forEach(j => {
       const votoAtual = meustVotosLocais[j.nome];
       const jaVotouItem = votoAtual !== undefined;
 
       htmlForm += `
-        <div class="col-md-6">
-          <div class="card border-secondary bg-dark text-light p-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <strong class="fs-5">${j.nome}</strong>
-              ${jaVotouItem ? '<span class="badge bg-success"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="badge bg-warning text-dark">Pendente</span>'}
-            </div>
-            <div class="btn-group w-100" role="group">
-              <button class="btn ${votoAtual === 1.0 ? 'btn-primary' : 'btn-outline-primary'} btn-sm" onclick="selecionarTier('${j.nome}', 1.0)">T1</button>
-              <button class="btn ${votoAtual === 2.0 ? 'btn-info' : 'btn-outline-info'} btn-sm" onclick="selecionarTier('${j.nome}', 2.0)">T2</button>
-              <button class="btn ${votoAtual === 3.0 ? 'btn-success' : 'btn-outline-success'} btn-sm" onclick="selecionarTier('${j.nome}', 3.0)">T3</button>
-              <button class="btn ${votoAtual === 4.0 ? 'btn-warning' : 'btn-outline-warning'} btn-sm" onclick="selecionarTier('${j.nome}', 4.0)">T4</button>
-              <button class="btn ${votoAtual === 5.0 ? 'btn-danger' : 'btn-outline-danger'} btn-sm" onclick="selecionarTier('${j.nome}', 5.0)">T5</button>
-            </div>
+        <div class="bg-zinc-950 border border-zinc-800 rounded-lg p-4">
+          <div class="flex justify-between items-center mb-3">
+            <span class="font-bold text-zinc-200">${j.nome}</span>
+            ${jaVotouItem ? '<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs px-2 py-0.5 rounded font-bold"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs px-2 py-0.5 rounded font-bold">PENDENTE</span>'}
+          </div>
+          <div class="grid grid-cols-5 gap-1.5">
+            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 1.0 ? 'bg-sky-500 text-zinc-950 border-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-sky-500'}" onclick="selecionarTier('${j.nome}', 1.0)">TIER 1</button>
+            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 2.0 ? 'bg-sky-400 text-zinc-950 border-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-sky-400'}" onclick="selecionarTier('${j.nome}', 2.0)">TIER 2</button>
+            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 3.0 ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-emerald-500'}" onclick="selecionarTier('${j.nome}', 3.0)">TIER 3</button>
+            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 4.0 ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-amber-500'}" onclick="selecionarTier('${j.nome}', 4.0)">TIER 4</button>
+            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 5.0 ? 'bg-rose-500 text-zinc-950 border-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-rose-500'}" onclick="selecionarTier('${j.nome}', 5.0)">TIER 5</button>
           </div>
         </div>
       `;
@@ -347,11 +396,11 @@
 
     const totalOutros = outros.length;
     const totalVotadosLocal = Object.keys(meustVotosLocais).length;
-    const textoBotaoSalvar = usuarioJaVotuNoCliente ? "Atualizar Votos" : "Salvar Votos";
+    const textoBotaoSalvar = usuarioJaVotuNoCliente ? "Atualizar Avaliações" : "Salvar Avaliações";
 
     htmlForm += `
-      <div class="mt-3">
-        <button class="btn btn-warning w-100 fw-bold" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled' : ''}>
+      <div class="mt-6">
+        <button class="w-full font-bold py-3 rounded uppercase tracking-wider transition-all duration-300 ${totalVotadosLocal < totalOutros ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed border border-zinc-700' : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 border border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)] cursor-pointer'}" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled' : ''}>
           <i class="bi bi-floppy-fill"></i> ${textoBotaoSalvar} (${totalVotadosLocal}/${totalOutros})
         </button>
       </div>
@@ -407,8 +456,8 @@
     ctList.innerHTML = '';
     trList.innerHTML = '';
 
-    times[0].jogadores.forEach(j => ctList.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary">${j.nome}</li>`);
-    times[1].jogadores.forEach(j => trList.innerHTML += `<li class="list-group-item bg-dark text-light border-secondary">${j.nome}</li>`);
+    times[0].jogadores.forEach(j => ctList.innerHTML += `<li class="px-4 py-2.5 text-zinc-200 text-sm flex items-center gap-2"><i class="bi bi-shield-fill text-sky-400"></i> ${j.nome}</li>`);
+    times[1].jogadores.forEach(j => trList.innerHTML += `<li class="px-4 py-2.5 text-zinc-200 text-sm flex items-center gap-2"><i class="bi bi-fire text-amber-400"></i> ${j.nome}</li>`);
 
     const resVotos = await fetch('/api/votos-detalhados');
     if (resVotos.ok) {
@@ -418,36 +467,36 @@
   }
 
   function renderTierBadge(tier) {
-    if (!tier) return '<span class="text-muted">-</span>';
+    if (!tier) return '<span class="text-zinc-700">-</span>';
     const num = Number(tier);
-    if (num === 1) return '<span class="badge bg-primary">T1</span>';
-    if (num === 2) return '<span class="badge bg-info text-dark">T2</span>';
-    if (num === 3) return '<span class="badge bg-success">T3</span>';
-    if (num === 4) return '<span class="badge bg-warning text-dark">T4</span>';
-    if (num === 5) return '<span class="badge bg-danger">T5</span>';
-    return `<span class="badge bg-secondary">T${num}</span>`;
+    if (num === 1) return '<span class="bg-sky-500/10 text-sky-400 border border-sky-500/30 px-2 py-0.5 rounded text-xs font-bold">TIER 1</span>';
+    if (num === 2) return '<span class="bg-sky-400/10 text-sky-300 border border-sky-400/30 px-2 py-0.5 rounded text-xs font-bold">TIER 2</span>';
+    if (num === 3) return '<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded text-xs font-bold">TIER 3</span>';
+    if (num === 4) return '<span class="bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded text-xs font-bold">TIER 4</span>';
+    if (num === 5) return '<span class="bg-rose-500/10 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded text-xs font-bold">TIER 5</span>';
+    return `<span class="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-xs font-bold">TIER ${num}</span>`;
   }
 
   function montarMatrizTabela() {
     const cabecalho = document.getElementById('cabecalhoMatriz');
     const corpo = document.getElementById('corpoMatriz');
 
-    cabecalho.innerHTML = '<th class="bg-secondary text-start text-white" style="width: 140px;">Votante \\ Alvo</th>';
+    cabecalho.innerHTML = '<th class="text-left px-4 py-3 font-bold border-r border-zinc-800 text-zinc-400">Votante \\ Alvo</th>';
     corpo.innerHTML = '';
 
     todosJogadores.forEach(j => {
-      cabecalho.innerHTML += `<th class="text-center text-warning fw-bold">${j.nome}</th>`;
+      cabecalho.innerHTML += `<th class="px-3 py-3 font-bold text-amber-400">${j.nome}</th>`;
     });
 
     todosJogadores.forEach(votante => {
-      let tr = `<tr><td class="fw-bold text-start text-info bg-dark-subtle">${votante.nome}</td>`;
+      let tr = `<tr class="hover:bg-zinc-900/50"><td class="font-bold text-left px-4 py-3 text-sky-400 border-r border-zinc-800 bg-zinc-900/30">${votante.nome}</td>`;
       todosJogadores.forEach(alvo => {
         if (votante.nome.toLowerCase() === alvo.nome.toLowerCase()) {
-          tr += `<td class="table-active text-secondary fw-bold">X</td>`;
+          tr += `<td class="bg-zinc-900/80 text-zinc-700 font-bold">X</td>`;
         } else {
           const mapaVotante = matrizVotosServidor[votante.nome] || matrizVotosServidor[votante.nome.toLowerCase()];
           const valorTier = mapaVotante ? mapaVotante[alvo.nome] : null;
-          tr += `<td>${renderTierBadge(valorTier)}</td>`;
+          tr += `<td class="p-3">${renderTierBadge(valorTier)}</td>`;
         }
       });
       tr += '</tr>';
@@ -467,7 +516,7 @@
   }
 
   async function limparLobby() {
-    if (!confirm("Resetar sala?")) return;
+    if (!confirm("Deseja realmente resetar o lobby e reiniciar a operação?")) return;
     const res = await fetch('/api/resetar', { method: 'POST' });
     if (!res.ok) {
       const mensagemErro = await tratarErroFetch(res);
@@ -477,6 +526,7 @@
     matrizVotosServidor = {};
     ultimaPartida = null;
     usuarioJaVotuNoCliente = false;
+    localStorage.removeItem('mix_cs2_nick'); // Limpa a trava do navegador ao resetar
     if (modalInstance) modalInstance.hide();
     carregar();
   }
