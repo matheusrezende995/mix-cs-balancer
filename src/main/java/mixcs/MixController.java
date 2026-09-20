@@ -1,25 +1,29 @@
 package mixcs;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api")
 public class MixController {
 
-    private final List<Jogador> lobby = new ArrayList<>();
+    @Autowired
+    private JogadorRepository jogadorRepository;
+
+    @Autowired
+    private VotoRepository votoRepository;
+
     private final BalanceadorService balanceadorService = new BalanceadorService();
-    // Estrutura: Votante -> (Alvo -> Tier)
-    private final Map<String, Map<String, Double>> matrizVotos = new HashMap<>();
 
     @GetMapping("/jogadores")
     public List<Jogador> getJogadores() {
-        return lobby;
+        return jogadorRepository.findAll();
     }
 
     @PostMapping("/entrar")
@@ -28,59 +32,84 @@ public class MixController {
             return ResponseEntity.badRequest().body("Nome inválido!");
         }
 
-        boolean existe = lobby.stream().anyMatch(j -> j.getNome().equalsIgnoreCase(nome));
-        if (existe) {
+        if (jogadorRepository.existsByNomeIgnoreCase(nome)) {
             return ResponseEntity.badRequest().body("Jogador já cadastrado no lobby!");
         }
 
-        if (lobby.size() >= 10) {
+        if (jogadorRepository.count() >= 10) {
             return ResponseEntity.badRequest().body("Lobby cheio (máximo 10 jogadores)!");
         }
 
-        lobby.add(new Jogador(nome));
+        jogadorRepository.save(new Jogador(nome.trim()));
         return ResponseEntity.ok("Jogador " + nome + " entrou no lobby!");
     }
 
     @PostMapping("/votar")
     public ResponseEntity<String> votarTier(@RequestParam String autor, @RequestParam String alvo, @RequestParam double tier) {
-        if (lobby.size() < 10) {
+        if (jogadorRepository.count() < 10) {
             return ResponseEntity.badRequest().body("A votação só é liberada com 10 jogadores!");
         }
 
-        Jogador jogadorAlvo = lobby.stream()
-                .filter(j -> j.getNome().equalsIgnoreCase(alvo))
-                .findFirst()
-                .orElse(null);
+        Optional<Jogador> autorOpt = jogadorRepository.findByNomeIgnoreCase(autor);
+        Optional<Jogador> alvoOpt = jogadorRepository.findByNomeIgnoreCase(alvo);
 
-        if (jogadorAlvo == null) {
-            return ResponseEntity.badRequest().body("Jogador alvo não encontrado!");
+        if (autorOpt.isEmpty() || alvoOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Jogador autor ou alvo não foi encontrado!");
         }
 
-        jogadorAlvo.adicionarVoto(tier);
+        Jogador autorObj = autorOpt.get();
+        Jogador alvoObj = alvoOpt.get();
 
-        // Salva na matriz: autor -> (alvo -> tier)
-        matrizVotos.computeIfAbsent(autor, k -> new HashMap<>()).put(alvo, tier);
+        if (autorObj.getId().equals(alvoObj.getId())) {
+            return ResponseEntity.badRequest().body("Não é permitido votar em si mesmo!");
+        }
 
-        return ResponseEntity.ok("Voto registrado!");
+        // Se o voto já existir, atualiza; senão cria um novo
+        Optional<Voto> votoExistente = votoRepository.findByAutorAndAlvo(autorObj, alvoObj);
+        if (votoExistente.isPresent()) {
+            Voto v = votoExistente.get();
+            v.setTier(tier);
+            votoRepository.save(v);
+        } else {
+            votoRepository.save(new Voto(autorObj, alvoObj, tier));
+        }
+
+        return ResponseEntity.ok("Voto registrado com sucesso!");
     }
 
     @GetMapping("/votos-concluidos-count")
     public ResponseEntity<Long> getVotosConcluidosCount() {
-        long count = lobby.stream()
-                .filter(j -> j.getHabilidadeMedia() != 3.0)
-                .count();
-        return ResponseEntity.ok(count);
+        return ResponseEntity.ok(votoRepository.countAutoresQueVotaram());
     }
 
     @GetMapping("/votos-detalhados")
     public ResponseEntity<Map<String, Map<String, Double>>> getVotosDetalhados() {
-        return ResponseEntity.ok(matrizVotos);
+        Map<String, Map<String, Double>> matriz = new HashMap<>();
+        List<Voto> todosVotos = votoRepository.findAll();
+
+        for (Voto v : todosVotos) {
+            matriz.computeIfAbsent(v.getAutor().getNome(), k -> new HashMap<>())
+                    .put(v.getAlvo().getNome(), v.getTier());
+        }
+
+        return ResponseEntity.ok(matriz);
     }
 
     @GetMapping("/balancear")
     public ResponseEntity<?> balancearPartida() {
+        List<Jogador> lobby = jogadorRepository.findAll();
         if (lobby.size() < 10) {
             return ResponseEntity.badRequest().body("É necessário ter 10 jogadores no lobby!");
+        }
+
+        // Calcula a média de cada jogador baseada nos votos do banco de dados
+        for (Jogador j : lobby) {
+            List<Voto> votosRecebidos = votoRepository.findByAlvo(j);
+            double media = votosRecebidos.stream()
+                    .mapToDouble(Voto::getTier)
+                    .average()
+                    .orElse(3.0); // Padrão T3 caso não haja votos
+            // Passar os dados para a sua lógica de balanceamento de times
         }
 
         try {
@@ -93,8 +122,8 @@ public class MixController {
 
     @PostMapping("/resetar")
     public ResponseEntity<String> resetarLobby() {
-        lobby.clear();
-        matrizVotos.clear();
-        return ResponseEntity.ok("Lobby limpo com sucesso!");
+        votoRepository.deleteAll();
+        jogadorRepository.deleteAll();
+        return ResponseEntity.ok("Lobby e votos limpos no banco de dados!");
     }
 }
