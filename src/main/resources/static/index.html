@@ -24,7 +24,7 @@
     <h1 class="text-4xl font-black tracking-wider text-amber-400 uppercase drop-shadow-[0_0_10px_rgba(251,191,36,0.3)]">
       <i class="bi bi-crosshair"></i> MIX CS2
     </h1>
-    <p class="text-zinc-400 text-sm tracking-widest uppercase mt-1">Tactical Matchmaking & Voting Matrix</p>
+    <p class="text-zinc-400 text-sm tracking-widest uppercase mt-1">MUITO PONTO E POUCA BALA - PALMEIRAS ASSAULT TEAM</p>
   </div>
 
   <!-- FASE 1: LOBBY -->
@@ -197,9 +197,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     modalInstance = new bootstrap.Modal(document.getElementById('modalAguardandoVotos'));
 
-    // Trava de sessão no navegador: Se o usuário já entrou com um nick nesta aba/navegador anteriormente, preenche ou bloqueia duplicidade
     verificarSessaoSalva();
-
     conectarWebSocket();
     carregar();
   });
@@ -207,7 +205,6 @@
   function verificarSessaoSalva() {
     const nickSalvo = localStorage.getItem('mix_cs2_nick');
     if (nickSalvo) {
-      // Opcional: Travar o select de usuário na tela de votação automaticamente para o nick salvo
       const selectUsuario = document.getElementById('meuUsuario');
       if(selectUsuario) {
         selectUsuario.value = nickSalvo;
@@ -289,7 +286,7 @@
 
       if (total === 0) {
         listaLobby.innerHTML = '<li class="text-zinc-600 text-center py-4 text-sm uppercase tracking-wider">Nenhum operador na sala.</li>';
-        localStorage.removeItem('mix_cs2_nick'); // Limpa se o lobby foi resetado
+        localStorage.removeItem('mix_cs2_nick');
       } else {
         todosJogadores.forEach(j => {
           listaLobby.innerHTML += `<li class="bg-zinc-950 border border-zinc-800 text-zinc-200 px-4 py-2.5 rounded flex items-center gap-2"><i class="bi bi-person-fill text-amber-400"></i> ${j.nome}</li>`;
@@ -326,8 +323,13 @@
 
   async function tratarErroFetch(response) {
     try {
-      const erroJson = await response.json();
-      return erroJson.mensagem || "Erro desconhecido no servidor.";
+      const texto = await response.text();
+      try {
+        const erroJson = JSON.parse(texto);
+        return erroJson.mensagem || erroJson.message || texto;
+      } catch (e) {
+        return texto || "Erro desconhecido no servidor.";
+      }
     } catch (e) {
       return "Erro de comunicação com o servidor.";
     }
@@ -338,7 +340,6 @@
     const nome = nomeInput.value.trim();
     if (!nome) return alert('Digite seu nick!');
 
-    // TRAVA NO CLIENTE: Evita mandar requisição se já estiver gravado neste navegador
     const nickSalvo = localStorage.getItem('mix_cs2_nick');
     if (nickSalvo && nickSalvo.toLowerCase() === nome.toLowerCase()) {
       return alert('Você já está registrado neste navegador!');
@@ -350,7 +351,6 @@
       return alert(mensagemErro);
     }
 
-    // Salva na memória do navegador para travar novas abas com o mesmo nome
     localStorage.setItem('mix_cs2_nick', nome);
     nomeInput.value = '';
     carregar();
@@ -420,11 +420,15 @@
 
     for (const alvo in meustVotosLocais) {
       const res = await fetch(`/api/votar?autor=${encodeURIComponent(meuNick)}&alvo=${encodeURIComponent(alvo)}&tier=${meustVotosLocais[alvo]}`, { method: 'POST' });
+
       if (!res.ok) {
         const mensagemErro = await tratarErroFetch(res);
-        return alert(mensagemErro);
+        alert("❌ Ação Bloqueada: " + mensagemErro);
+        return;
       }
     }
+
+    await fetch(`/api/finalizar-votos?autor=${encodeURIComponent(meuNick)}`, { method: 'POST' });
 
     usuarioJaVotuNoCliente = true;
     modalInstance.show();
@@ -526,7 +530,7 @@
     matrizVotosServidor = {};
     ultimaPartida = null;
     usuarioJaVotuNoCliente = false;
-    localStorage.removeItem('mix_cs2_nick'); // Limpa a trava do navegador ao resetar
+    localStorage.removeItem('mix_cs2_nick');
     if (modalInstance) modalInstance.hide();
     carregar();
   }
