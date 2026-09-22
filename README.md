@@ -1,5 +1,5 @@
 # 🎯 Mix CS Balancer
-
+link para acesso: https://mix-cs-balancer-1.onrender.com
 > Aplicação web full-stack desenvolvida com **Spring Boot** e **WebSockets** para gerenciar lobbies de partidas customizadas (Mix / PCW de CS2), automatizar o ecossistema de jogadores em tempo real e realizar o **balanceamento inteligente e justo de 2 times (5v5)**.
 
 ---
