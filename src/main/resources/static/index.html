@@ -56,7 +56,7 @@
 
   <!-- FASE 2: VOTAÇÃO -->
   <div id="faseVotacao" class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl p-6 max-w-3xl mx-auto" style="display: none;">
-    <div class="border-b border-zinc-800 pb-4 mb-4">
+    <div class="flex justify-between items-center border-b border-zinc-800 pb-4 mb-4">
       <h5 class="text-lg font-bold flex items-center gap-2 text-zinc-200">
         <i class="bi bi-star-fill text-amber-400"></i> Fase de Avaliação de Tiers
       </h5>
@@ -64,7 +64,7 @@
 
     <div>
       <label for="meuUsuario" class="block text-sm font-bold text-zinc-400 mb-2 uppercase tracking-wide">Quem é você na operação?</label>
-      <select id="meuUsuario" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 px-4 py-2.5 rounded focus:outline-none focus:border-amber-400 mb-6" onchange="renderizarVotacao()">
+      <select id="meuUsuario" class="w-full bg-zinc-950 border border-zinc-800 text-zinc-100 px-4 py-2.5 rounded focus:outline-none focus:border-amber-400 mb-6" onchange="mudarUsuario()">
         <option value="">-- SELECIONE SEU OPERADOR --</option>
       </select>
 
@@ -191,7 +191,6 @@
   let matrizVotosServidor = {};
   let ultimaPartida = null;
   let modalInstance = null;
-  let usuarioJaVotuNoCliente = false;
   let stompClient = null;
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -206,10 +205,38 @@
     const nickSalvo = localStorage.getItem('mix_cs2_nick');
     if (nickSalvo) {
       const selectUsuario = document.getElementById('meuUsuario');
-      if(selectUsuario) {
+      if (selectUsuario) {
         selectUsuario.value = nickSalvo;
       }
+
+      const votosSalvos = localStorage.getItem(`votos_${nickSalvo}`);
+      if (votosSalvos) {
+        try {
+          meustVotosLocais = JSON.parse(votosSalvos);
+        } catch(e) {
+          meustVotosLocais = {};
+        }
+      }
     }
+  }
+
+  function mudarUsuario() {
+    const nickSelecionado = document.getElementById('meuUsuario').value;
+    if (nickSelecionado) {
+      localStorage.setItem('mix_cs2_nick', nickSelecionado);
+
+      const votosSalvos = localStorage.getItem(`votos_${nickSelecionado}`);
+      if (votosSalvos) {
+        try {
+          meustVotosLocais = JSON.parse(votosSalvos);
+        } catch(e) {
+          meustVotosLocais = {};
+        }
+      } else {
+        meustVotosLocais = {};
+      }
+    }
+    renderizarVotacao();
   }
 
   // Conexão WebSocket via STOMP / SockJS
@@ -289,8 +316,9 @@
         localStorage.removeItem('mix_cs2_nick');
       } else {
         todosJogadores.forEach(j => {
-          listaLobby.innerHTML += `<li class="bg-zinc-950 border border-zinc-800 text-zinc-200 px-4 py-2.5 rounded flex items-center gap-2"><i class="bi bi-person-fill text-amber-400"></i> ${j.nome}</li>`;
-          selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome}</option>`;
+          const badgeVoto = j.votou ? '<span class="text-emerald-400 text-xs ms-auto"><i class="bi bi-check-circle-fill"></i> Votou</span>' : '<span class="text-amber-500 text-xs ms-auto">Pendente</span>';
+          listaLobby.innerHTML += `<li class="bg-zinc-950 border border-zinc-800 text-zinc-200 px-4 py-2.5 rounded flex items-center gap-2"><i class="bi bi-person-fill text-amber-400"></i> ${j.nome} ${badgeVoto}</li>`;
+          selectUsuario.innerHTML += `<option value="${j.nome}">${j.nome} ${j.votou ? ' (Já votou)' : ''}</option>`;
         });
       }
 
@@ -311,6 +339,11 @@
         faseVotacao.style.display = 'block';
         faseFormacao.style.display = 'none';
         renderizarVotacao();
+
+        const jogAtualObj = todosJogadores.find(j => j.nome.toLowerCase() === (selectUsuario.value || '').toLowerCase());
+        if (jogAtualObj && jogAtualObj.votou) {
+          if (modalInstance) modalInstance.show();
+        }
       } else {
         faseLobby.style.display = 'none';
         faseVotacao.style.display = 'none';
@@ -340,11 +373,6 @@
     const nome = nomeInput.value.trim();
     if (!nome) return alert('Digite seu nick!');
 
-    const nickSalvo = localStorage.getItem('mix_cs2_nick');
-    if (nickSalvo && nickSalvo.toLowerCase() === nome.toLowerCase()) {
-      return alert('Você já está registrado neste navegador!');
-    }
-
     const res = await fetch(`/api/entrar?nome=${encodeURIComponent(nome)}`, { method: 'POST' });
     if (!res.ok) {
       const mensagemErro = await tratarErroFetch(res);
@@ -368,6 +396,9 @@
       return;
     }
 
+    const jogadorAtualObj = todosJogadores.find(j => j.nome.toLowerCase() === meuNick.toLowerCase());
+    const jaVotouNoServidor = jogadorAtualObj ? jogadorAtualObj.votou : false;
+
     boxStatus.style.display = 'block';
     const outros = todosJogadores.filter(j => j.nome.toLowerCase() !== meuNick.toLowerCase());
 
@@ -383,11 +414,11 @@
             ${jaVotouItem ? '<span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs px-2 py-0.5 rounded font-bold"><i class="bi bi-check-lg"></i> OK</span>' : '<span class="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs px-2 py-0.5 rounded font-bold">PENDENTE</span>'}
           </div>
           <div class="grid grid-cols-5 gap-1.5">
-            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 1.0 ? 'bg-sky-500 text-zinc-950 border-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-sky-500'}" onclick="selecionarTier('${j.nome}', 1.0)">TIER 1</button>
-            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 2.0 ? 'bg-sky-400 text-zinc-950 border-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-sky-400'}" onclick="selecionarTier('${j.nome}', 2.0)">TIER 2</button>
-            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 3.0 ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-emerald-500'}" onclick="selecionarTier('${j.nome}', 3.0)">TIER 3</button>
-            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 4.0 ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-amber-500'}" onclick="selecionarTier('${j.nome}', 4.0)">TIER 4</button>
-            <button class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 5.0 ? 'bg-rose-500 text-zinc-950 border-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-rose-500'}" onclick="selecionarTier('${j.nome}', 5.0)">TIER 5</button>
+            <button ${jaVotouNoServidor ? 'disabled' : ''} class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 1.0 ? 'bg-sky-500 text-zinc-950 border-sky-400 shadow-[0_0_10px_rgba(14,165,233,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-sky-500'} ${jaVotouNoServidor ? 'opacity-50 cursor-not-allowed' : ''}" onclick="selecionarTier('${j.nome}', 1.0)">TIER 1</button>
+            <button ${jaVotouNoServidor ? 'disabled' : ''} class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 2.0 ? 'bg-sky-400 text-zinc-950 border-sky-300 shadow-[0_0_10px_rgba(56,189,248,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-sky-400'} ${jaVotouNoServidor ? 'opacity-50 cursor-not-allowed' : ''}" onclick="selecionarTier('${j.nome}', 2.0)">TIER 2</button>
+            <button ${jaVotouNoServidor ? 'disabled' : ''} class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 3.0 ? 'bg-emerald-500 text-zinc-950 border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-emerald-500'} ${jaVotouNoServidor ? 'opacity-50 cursor-not-allowed' : ''}" onclick="selecionarTier('${j.nome}', 3.0)">TIER 3</button>
+            <button ${jaVotouNoServidor ? 'disabled' : ''} class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 4.0 ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-amber-500'} ${jaVotouNoServidor ? 'opacity-50 cursor-not-allowed' : ''}" onclick="selecionarTier('${j.nome}', 4.0)">TIER 4</button>
+            <button ${jaVotouNoServidor ? 'disabled' : ''} class="py-1.5 text-xs font-bold rounded transition-all border ${votoAtual === 5.0 ? 'bg-rose-500 text-zinc-950 border-rose-400 shadow-[0_0_10px_rgba(244,63,94,0.5)]' : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-rose-500'} ${jaVotouNoServidor ? 'opacity-50 cursor-not-allowed' : ''}" onclick="selecionarTier('${j.nome}', 5.0)">TIER 5</button>
           </div>
         </div>
       `;
@@ -396,21 +427,36 @@
 
     const totalOutros = outros.length;
     const totalVotadosLocal = Object.keys(meustVotosLocais).length;
-    const textoBotaoSalvar = usuarioJaVotuNoCliente ? "Atualizar Avaliações" : "Salvar Avaliações";
 
-    htmlForm += `
-      <div class="mt-6">
-        <button class="w-full font-bold py-3 rounded uppercase tracking-wider transition-all duration-300 ${totalVotadosLocal < totalOutros ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed border border-zinc-700' : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 border border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)] cursor-pointer'}" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled' : ''}>
-          <i class="bi bi-floppy-fill"></i> ${textoBotaoSalvar} (${totalVotadosLocal}/${totalOutros})
-        </button>
-      </div>
-    `;
+    if (jaVotouNoServidor) {
+      htmlForm += `
+        <div class="mt-6 text-center p-4 bg-zinc-950 border border-emerald-500/30 rounded">
+          <p class="text-emerald-400 font-bold text-sm"><i class="bi bi-check-circle-fill"></i> Você já enviou seus votos com este operador!</p>
+          <p class="text-zinc-500 text-xs mt-1">Os votos estão travados no servidor.</p>
+        </div>
+      `;
+    } else {
+      htmlForm += `
+        <div class="mt-6">
+          <button class="w-full font-bold py-3 rounded uppercase tracking-wider transition-all duration-300 ${totalVotadosLocal < totalOutros ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed border border-zinc-700' : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 border border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.5)] cursor-pointer'}" onclick="enviarMeusVotos()" ${totalVotadosLocal < totalOutros ? 'disabled' : ''}>
+            <i class="bi bi-floppy-fill"></i> Salvar Avaliações (${totalVotadosLocal}/${totalOutros})
+          </button>
+        </div>
+      `;
+    }
 
     painel.innerHTML = htmlForm;
   }
 
   function selecionarTier(alvo, tier) {
+    const meuNick = document.getElementById('meuUsuario').value;
+    const jogadorAtualObj = todosJogadores.find(j => j.nome.toLowerCase() === meuNick.toLowerCase());
+    if (jogadorAtualObj && jogadorAtualObj.votou) return;
+
     meustVotosLocais[alvo] = tier;
+    if (meuNick) {
+      localStorage.setItem(`votos_${meuNick}`, JSON.stringify(meustVotosLocais));
+    }
     renderizarVotacao();
   }
 
@@ -424,13 +470,20 @@
       if (!res.ok) {
         const mensagemErro = await tratarErroFetch(res);
         alert("❌ Ação Bloqueada: " + mensagemErro);
+        carregar();
         return;
       }
     }
 
-    await fetch(`/api/finalizar-votos?autor=${encodeURIComponent(meuNick)}`, { method: 'POST' });
+    const resFinal = await fetch(`/api/finalizar-votos?autor=${encodeURIComponent(meuNick)}`, { method: 'POST' });
+    if (!resFinal.ok) {
+      const mensagemErro = await tratarErroFetch(resFinal);
+      alert("❌ Erro ao finalizar: " + mensagemErro);
+      carregar();
+      return;
+    }
 
-    usuarioJaVotuNoCliente = true;
+    carregar();
     modalInstance.show();
   }
 
@@ -526,10 +579,10 @@
       const mensagemErro = await tratarErroFetch(res);
       return alert(mensagemErro);
     }
+
     meustVotosLocais = {};
     matrizVotosServidor = {};
     ultimaPartida = null;
-    usuarioJaVotuNoCliente = false;
     localStorage.removeItem('mix_cs2_nick');
     if (modalInstance) modalInstance.hide();
     carregar();

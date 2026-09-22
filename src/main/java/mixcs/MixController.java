@@ -7,11 +7,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
@@ -27,9 +25,6 @@ public class MixController {
     private SimpMessagingTemplate messagingTemplate;
 
     private final BalanceadorService balanceadorService = new BalanceadorService();
-
-    // Trava em memória para armazenar os autores que já finalizaram e enviaram os votos
-    private final Set<String> jogadoresQueJaVotaram = new HashSet<>();
 
     @GetMapping("/jogadores")
     public List<Jogador> getJogadores() {
@@ -77,29 +72,12 @@ public class MixController {
             throw new IllegalArgumentException("Não é permitido votar em si mesmo!");
         }
 
-        // CORREÇÃO DEFINITIVA: Verifica direto no Banco de Dados se este autor já finalizou/enviou votos.
-        // Se você quiser permitir múltiplos votos enquanto edita na mesma tela e só bloquear depois de "finalizar",
-        // mantemos a checagem, mas impedimos que uma aba nova (que limpa o cliente) burle se o usuário já tiver
-        // enviado o lote ou se a regra for "cada par autor/alvo só vota uma vez".
-
-        // Se a sua intenção é que cada jogador só possa enviar a lista 1 única vez e nunca mais mexer:
-        boolean jaVotouNoBanco = votoRepository.findAll().stream()
-                .anyMatch(v -> v.getAutor().getId().equals(autorObj.getId()));
-
-        // Opcional: se o fluxo da sua aplicação permite alterar os votos livremente até clicar em "finalizar",
-        // o ideal é olhar a sua flag de finalizados. Para persistir isso no banco sem perder ao reiniciar,
-        // o ideal seria criar uma coluna booleana `vancou/finalizou` na tabela de Jogadores.
-        // Mas se quisermos corrigir o problema do dup de aba agora de forma simples:
+        // TRAVA DE SEGURANÇA DEFINITIVA: Se o jogador já finalizou os votos, rejeita qualquer alteração!
+        if (autorObj.isVotou()) {
+            throw new IllegalStateException("O jogador " + autor + " já finalizou os votos e não pode mais alterá-los!");
+        }
 
         Optional<Voto> votoExistente = votoRepository.findByAutorAndAlvo(autorObj, alvoObj);
-
-        // Se o voto já existe e você quer bloquear alterações após a primeira submissão em outra aba:
-        // (Descomente a linha abaixo se quiser bloquear qualquer alteração após o primeiro voto cadastrado)
-        /*
-        if (votoExistente.isPresent() && jogadoresQueJaVotaram.contains(autor)) {
-            throw new IllegalStateException("O usuário " + autor + " já votou e não pode alterar!");
-        }
-        */
 
         if (votoExistente.isPresent()) {
             Voto v = votoExistente.get();
@@ -114,20 +92,31 @@ public class MixController {
         return ResponseEntity.ok("Voto registrado com sucesso!");
     }
 
-    // Endpoint recomendado para travar o usuário definitivamente após mandar todos os votos da tela
+    // Endpoint para travar o usuário definitivamente após mandar todos os votos da tela
     @PostMapping("/finalizar-votos")
     public ResponseEntity<String> finalizarVotos(@RequestParam String autor) {
         if (autor == null || autor.trim().isEmpty()) {
             throw new IllegalArgumentException("Nome do autor inválido!");
         }
-        jogadoresQueJaVotaram.add(autor.trim());
+
+        Optional<Jogador> jogadorOpt = jogadorRepository.findByNomeIgnoreCase(autor.trim());
+        if (jogadorOpt.isEmpty()) {
+            throw new IllegalArgumentException("Jogador não encontrado!");
+        }
+
+        Jogador j = jogadorOpt.get();
+        j.setVotou(true); // Marca permanentemente no banco que ele votou
+        jogadorRepository.save(j);
+
         notificarAtualizacaoGeral();
         return ResponseEntity.ok("Votos finalizados e travados para " + autor);
     }
 
     @GetMapping("/votos-concluidos-count")
     public ResponseEntity<Long> getVotosConcluidosCount() {
-        return ResponseEntity.ok(votoRepository.countAutoresQueVotaram());
+        // Conta quantos jogadores possuem a flag votou = true no banco
+        long count = jogadorRepository.findAll().stream().filter(Jogador::isVotou).count();
+        return ResponseEntity.ok(count);
     }
 
     @GetMapping("/votos-detalhados")
@@ -167,8 +156,7 @@ public class MixController {
     @PostMapping("/resetar")
     public ResponseEntity<String> resetarLobby() {
         votoRepository.deleteAll();
-        jogadorRepository.deleteAll();
-        jogadoresQueJaVotaram.clear(); // Limpa as travas de votos ao resetar o lobby
+        jogadorRepository.deleteAll(); // Limpa também os jogadores e reseta o status 'votou'
 
         notificarAtualizacaoGeral();
 
@@ -179,16 +167,11 @@ public class MixController {
     public ResponseEntity<Map<String, Object>> obterStatusVotacao() {
         List<Jogador> todos = jogadorRepository.findAll();
 
-        List<Long> idsAutoresQueVotaram = votoRepository.findAll().stream()
-                .map(v -> v.getAutor().getId())
-                .distinct()
-                .toList();
-
         List<String> votaram = new ArrayList<>();
         List<String> faltam = new ArrayList<>();
 
         for (Jogador j : todos) {
-            if (idsAutoresQueVotaram.contains(j.getId())) {
+            if (j.isVotou()) {
                 votaram.add(j.getNome());
             } else {
                 faltam.add(j.getNome());
